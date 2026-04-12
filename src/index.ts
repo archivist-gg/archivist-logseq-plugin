@@ -57,6 +57,7 @@ function createStatefulBlockRenderer(
   return (props: { content: string }) => {
     const React = logseq.Experiments.React! as any;
     const containerRef = React.useRef(null) as { current: HTMLDivElement | null };
+    const abortRef = React.useRef(null as AbortController | null) as { current: AbortController | null };
     const [mode, setMode] = React.useState(
       logseq.settings?.defaultEditMode === "source" ? "source" : "view"
     ) as [string, (m: string) => void];
@@ -68,6 +69,9 @@ function createStatefulBlockRenderer(
 
     React.useEffect(() => {
       if (!containerRef.current) return;
+      if (abortRef.current) abortRef.current.abort();
+      abortRef.current = new AbortController();
+      const signal = abortRef.current.signal;
       const el = containerRef.current;
       const result = parser(props.content);
 
@@ -91,7 +95,7 @@ function createStatefulBlockRenderer(
         });
         el.textContent = "";
         el.insertAdjacentHTML("afterbegin", `<div class="archivist-source-view"><pre class="archivist-source-pre">${escaped}</pre>${sideHtml}</div>`);
-        wireSideButtonEvents(el, buildCallbacks(data));
+        wireSideButtonEvents(el, buildCallbacks(data), { signal });
       } else if (mode === "edit" && editRenderer && wireEdit) {
         // Edit mode
         const editHtml = editRenderer(data, compCtx);
@@ -104,7 +108,7 @@ function createStatefulBlockRenderer(
         el.textContent = "";
         el.insertAdjacentHTML("afterbegin", editHtml + sideHtml);
         wireEdit(el, data, compCtx, buildEditCallbacks());
-        wireSideButtonEvents(el, buildCallbacks(data));
+        wireSideButtonEvents(el, buildCallbacks(data), { signal });
       } else {
         // View mode (default)
         const cols = data.columns ?? columns;
@@ -119,7 +123,7 @@ function createStatefulBlockRenderer(
         });
         el.insertAdjacentHTML("beforeend", sideHtml);
         if (postRender) postRender(el);
-        wireSideButtonEvents(el, buildCallbacks(data));
+        wireSideButtonEvents(el, buildCallbacks(data), { signal });
       }
     }, [props.content, mode, columns, compCtx]);
 
@@ -131,18 +135,19 @@ function createStatefulBlockRenderer(
           const el = containerRef.current;
           if (!el) return;
           const uuid = findBlockUuid(el);
+          let ctx: CompendiumContext | null = null;
           if (uuid) {
-            setBlockUuid(uuid);
-            const ctx = await getCompendiumContext(uuid, logseq as any);
-            setCompCtx(ctx);
+            ctx = await getCompendiumContext(uuid, logseq as any);
           }
+          if (uuid) setBlockUuid(uuid);
+          if (uuid) setCompCtx(ctx);
           setMode("edit");
         },
         onSave: () => {}, // handled by edit callbacks
         onSaveAsNew: () => {}, // handled by edit callbacks
         onCancel: () => setMode("view"),
         onDeleteBlock: async () => {
-          const uuid = blockUuid || findBlockUuid(containerRef.current!);
+          const uuid = blockUuid || (containerRef.current ? findBlockUuid(containerRef.current) : null);
           if (uuid) {
             await logseq.Editor.removeBlock(uuid);
           }
@@ -150,6 +155,9 @@ function createStatefulBlockRenderer(
         onDeleteEntity: compCtx ? async () => {
           if (!managerRef) return;
           await managerRef.deleteEntity(compCtx.slug);
+          const uuid = blockUuid || (containerRef.current ? findBlockUuid(containerRef.current) : null);
+          if (uuid) await logseq.Editor.removeBlock(uuid);
+          await logseq.UI.showMsg(`Deleted "${compCtx.slug}" from compendium`, "success");
         } : undefined,
       };
     }
@@ -157,7 +165,7 @@ function createStatefulBlockRenderer(
     function buildEditCallbacks(): EditCallbacks {
       return {
         onSave: async (yaml: string) => {
-          const uuid = blockUuid;
+          const uuid = blockUuid || (containerRef.current ? findBlockUuid(containerRef.current) : null);
           if (!uuid) return;
           const fenced = "```" + entityType + "\n" + yaml + "\n```";
           await logseq.Editor.updateBlock(uuid, fenced);

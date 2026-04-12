@@ -67,7 +67,9 @@ export function renderDeleteMenu(hasCompendiumContext: boolean): string {
 export function wireSideButtonEvents(
   container: HTMLElement,
   callbacks: SideButtonCallbacks,
+  options?: { signal?: AbortSignal },
 ): void {
+  const listenerOptions: AddEventListenerOptions = options?.signal ? { signal: options.signal } : {};
   container.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest("[data-action]");
     if (!btn) return;
@@ -86,7 +88,7 @@ export function wireSideButtonEvents(
       case "delete-block": callbacks.onDeleteBlock(); break;
       case "delete-entity": callbacks.onDeleteEntity?.(); break;
     }
-  });
+  }, listenerOptions);
 }
 
 function handleTrashClick(container: HTMLElement, callbacks: SideButtonCallbacks): void {
