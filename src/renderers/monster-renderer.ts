@@ -376,4 +376,20 @@ export function initMonsterTabs(container: HTMLElement): void {
       });
     });
   });
+
+  // Wire legendary action/resistance checkbox rows
+  const CHECKED = "archivist-legendary-box-checked";
+  container.querySelectorAll<HTMLElement>(".archivist-legendary-box-row").forEach((row) => {
+    const boxes = Array.from(row.querySelectorAll<HTMLElement>(".archivist-legendary-box"));
+    boxes.forEach((box, i) => {
+      box.addEventListener("click", () => {
+        const isChecked = box.classList.contains(CHECKED);
+        const currentCount = boxes.filter((b) => b.classList.contains(CHECKED)).length;
+        const newCount = isChecked ? currentCount - 1 : i + 1;
+        boxes.forEach((b, j) => {
+          b.classList.toggle(CHECKED, j < newCount);
+        });
+      });
+    });
+  });
 }

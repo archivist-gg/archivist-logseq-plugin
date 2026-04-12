@@ -7,6 +7,18 @@
    ========================================================================== */
 @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@400;700&display=swap');
 
+/* Hide Logseq's native fenced-code-block toolbar (resize/refresh buttons)
+   when it wraps an archivist stat block. The toolbar sits in a sibling or
+   parent element above .archivist-block. We target all known Logseq toolbar
+   selectors that appear on fenced code block containers. */
+.fenced-code-block:has(.archivist-block) > .extensions__code-lang,
+.fenced-code-block:has(.archivist-block) > .extensions__code-calc,
+.fenced-code-block:has(.archivist-block) > .code-editor-extensions,
+.fenced-code-block:has(.archivist-block) > .text-sm,
+.fenced-code-block:has(.archivist-block) > :not([class*="archivist"]):not(div:has(.archivist-block)) {
+  display: none !important;
+}
+
 /* Logseq Override Reset — strip Logseq's fenced-code-block chrome so the
    parchment stat block is the only visible frame. Logseq wraps plugin-rendered
    fenced code blocks in containers that inherit the editor's dark theme border,
