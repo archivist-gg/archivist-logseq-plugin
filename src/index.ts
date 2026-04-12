@@ -247,23 +247,35 @@ function createStatefulBlockRenderer(
 
 /**
  * Hide Logseq's native fenced-code-block toolbar (resize/refresh buttons).
- * Walks up from the plugin's container to find the fenced-code-block wrapper,
- * then hides any sibling elements that aren't part of the plugin's rendering.
+ * Walks up from the plugin's rendered container through ancestor levels,
+ * hiding any sibling elements that aren't part of the plugin's own rendering.
+ * Stops after 5 levels or when reaching .ls-block.
  */
 function hideLogseqCodeToolbar(el: HTMLElement): void {
-  // Walk up to find the fenced code block container
-  let parent = el.parentElement;
-  while (parent && !parent.classList.contains("fenced-code-block")) {
-    parent = parent.parentElement;
-  }
-  if (!parent) return;
+  let node: HTMLElement | null = el;
+  for (let depth = 0; depth < 5 && node; depth++) {
+    const parent = node.parentElement;
+    if (!parent) break;
+    // Stop at the block boundary
+    if (parent.classList.contains("ls-block")) break;
 
-  // Hide all children of the fenced-code-block that aren't our container
-  for (const child of Array.from(parent.children)) {
-    if (child === el || child.contains(el) || (child as HTMLElement).querySelector?.(".archivist-block")) {
-      continue;
+    // Hide siblings that are not our ancestor chain and not archivist elements
+    for (const sibling of Array.from(parent.children)) {
+      if (sibling === node) continue;
+      const sibEl = sibling as HTMLElement;
+      // Skip if it's an archivist element
+      if (sibEl.classList?.contains("archivist-block")) continue;
+      if (sibEl.querySelector?.(".archivist-block")) continue;
+      // Hide toolbar-like elements (buttons, small utility divs with SVGs)
+      if (sibEl.tagName === "BUTTON" ||
+          sibEl.querySelector("button") ||
+          sibEl.querySelector("svg") ||
+          sibEl.classList?.contains("extensions__code-lang") ||
+          sibEl.classList?.contains("extensions__code-calc")) {
+        sibEl.style.display = "none";
+      }
     }
-    (child as HTMLElement).style.display = "none";
+    node = parent;
   }
 }
 
