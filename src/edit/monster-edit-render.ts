@@ -589,6 +589,19 @@ export function wireMonsterEditEvents(
     });
   }
 
+  // -- Wire HP override (click auto-value to override) --
+  const hpValueEl = container.querySelector<HTMLElement>('[data-display="hp"]');
+  const hpAutoLabel = hpValueEl?.nextElementSibling as HTMLElement | null;
+  if (hpValueEl && hpAutoLabel) {
+    wireOverride(hpValueEl, hpAutoLabel, "hp", () => state.current.hp?.average ?? 0, (val) => {
+      const hp = { ...state.current.hp!, average: val };
+      state.setOverride("hp", val);
+      state.updateField("hp", hp);
+    }, () => {
+      state.clearOverride("hp");
+    });
+  }
+
   // -- Wire HP formula --
   const hpFormulaInput = container.querySelector<HTMLInputElement>('[data-field="hp.formula"]');
   if (hpFormulaInput) {
@@ -627,11 +640,13 @@ export function wireMonsterEditEvents(
   // -- Wire collapsible toggles --
   wireCollapsibles(container);
 
-  // -- Wire save toggles --
+  // -- Wire save toggles + overrides --
   wireSaveToggles(container, state);
+  wireSaveOverrides(container, state);
 
-  // -- Wire skill toggles --
+  // -- Wire skill toggles + overrides --
   wireSkillToggles(container, state);
+  wireSkillOverrides(container, state);
 
   // -- Wire damage/condition tag selects --
   wireDamageConditionSelects(container, state);
@@ -819,6 +834,55 @@ function wireSkillToggles(container: HTMLElement, state: MonsterEditState): void
         valEl.classList.toggle("proficient-value", profLevel !== "none");
       }
     });
+  }
+}
+
+function wireSaveOverrides(container: HTMLElement, state: MonsterEditState): void {
+  for (const key of ABILITY_KEYS) {
+    const valEl = container.querySelector<HTMLElement>(`[data-display="save.${key}"]`);
+    const autoLabel = valEl?.parentElement?.querySelector<HTMLElement>(".archivist-auto-label");
+    if (!valEl || !autoLabel) continue;
+    const saveIsOverridden = state.current.overrides.has(`saves.${key}`);
+    wireOverride(valEl, autoLabel, `saves.${key}`,
+      () => {
+        const sc = getAbilityScore(state.current, key);
+        return savingThrow(sc, state.current.saveProficiencies[key], state.current.proficiencyBonus);
+      },
+      (val) => {
+        if (!state.current.saves) state.current.saves = {};
+        state.current.saves[key] = val;
+        state.setOverride(`saves.${key}`, val);
+      },
+      () => { state.clearOverride(`saves.${key}`); },
+      formatModifier,
+      saveIsOverridden,
+    );
+  }
+}
+
+function wireSkillOverrides(container: HTMLElement, state: MonsterEditState): void {
+  for (const skill of ALL_SKILLS) {
+    const skillLower = skill.toLowerCase();
+    const valEl = container.querySelector<HTMLElement>(`[data-display="skill.${skillLower}"]`);
+    const autoLabel = valEl?.parentElement?.querySelector<HTMLElement>(".archivist-auto-label");
+    if (!valEl || !autoLabel) continue;
+    const skillIsOverridden = state.current.overrides.has(`skills.${skillLower}`);
+    const abilityKey = SKILL_ABILITY[skillLower];
+    wireOverride(valEl, autoLabel, `skills.${skillLower}`,
+      () => {
+        const sc = getAbilityScore(state.current, abilityKey);
+        const profLevel = state.current.skillProficiencies[skillLower] ?? "none";
+        return skillBonus(sc, profLevel, state.current.proficiencyBonus);
+      },
+      (val) => {
+        if (!state.current.skills) state.current.skills = {};
+        state.current.skills[skillLower] = val;
+        state.setOverride(`skills.${skillLower}`, val);
+      },
+      () => { state.clearOverride(`skills.${skillLower}`); },
+      formatModifier,
+      skillIsOverridden,
+    );
   }
 }
 
@@ -1483,4 +1547,81 @@ function updateDom(container: HTMLElement, state: MonsterEditState): void {
     ppEl.textContent = String(passivePerception(wisScore, percProf, profBonus));
     ppEl.classList.toggle("proficient-value", percProf !== "none");
   }
+}
+
+// ---------------------------------------------------------------------------
+// Override: click-to-override auto-calculated values (HP, saves, skills)
+// ---------------------------------------------------------------------------
+
+function wireOverride(
+  valueEl: HTMLElement,
+  autoLabel: HTMLElement,
+  field: string,
+  getAutoValue: () => number,
+  onSet: (val: number) => void,
+  onClear: () => void,
+  fmt: (val: number) => string = String,
+  isAlreadyOverridden = false,
+): void {
+  let overrideInput: HTMLInputElement | null = null;
+  let overrideMark: HTMLElement | null = null;
+
+  function createOverrideMark(): HTMLElement {
+    const mark = document.createElement("span");
+    mark.className = "archivist-override-mark";
+    mark.textContent = "*";
+    mark.title = "Overridden — click to restore auto-calculation";
+    mark.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onClear();
+      if (overrideMark) { overrideMark.remove(); overrideMark = null; }
+      valueEl.textContent = fmt(getAutoValue());
+      autoLabel.textContent = "(auto)";
+    });
+    return mark;
+  }
+
+  if (isAlreadyOverridden) {
+    overrideMark = createOverrideMark();
+    valueEl.after(overrideMark);
+  }
+
+  valueEl.addEventListener("click", () => {
+    if (overrideInput) return;
+
+    const currentVal = parseInt(valueEl.textContent ?? "0") || 0;
+    overrideInput = document.createElement("input");
+    overrideInput.type = "number";
+    overrideInput.value = String(currentVal);
+    overrideInput.className = "archivist-num-in";
+    overrideInput.style.width = "50px";
+    overrideInput.style.display = "inline-block";
+
+    valueEl.textContent = "";
+    valueEl.appendChild(overrideInput);
+    autoLabel.textContent = "";
+    overrideInput.focus();
+    overrideInput.select();
+
+    const commit = () => {
+      const val = parseInt(overrideInput?.value ?? "") || getAutoValue();
+      if (overrideInput) { overrideInput.remove(); overrideInput = null; }
+      valueEl.textContent = fmt(val);
+      onSet(val);
+      if (!overrideMark) {
+        overrideMark = createOverrideMark();
+      }
+      valueEl.after(overrideMark);
+    };
+
+    overrideInput.addEventListener("blur", commit);
+    overrideInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); commit(); }
+      if (e.key === "Escape") {
+        if (overrideInput) { overrideInput.remove(); overrideInput = null; }
+        valueEl.textContent = fmt(getAutoValue());
+        autoLabel.textContent = "(auto)";
+      }
+    });
+  });
 }
