@@ -22,6 +22,7 @@ import type { CompendiumContext } from "./edit/block-utils";
 import { renderSideButtons, wireSideButtonEvents } from "./edit/side-buttons";
 import type { SideButtonCallbacks } from "./edit/side-buttons";
 import { showCompendiumPicker } from "./edit/compendium-picker";
+import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edit-render";
 
 type ParseResult<T> =
   | { success: true; data: T }
@@ -257,7 +258,7 @@ async function main() {
 
   // Register fenced code block renderers
   logseq.Experiments.registerFencedCodeRenderer("monster", {
-    render: createStatefulBlockRenderer("monster", parseMonster, renderMonsterBlock, null, null, initMonsterTabs),
+    render: createStatefulBlockRenderer("monster", parseMonster, renderMonsterBlock, renderMonsterEditMode, wireMonsterEditEvents, initMonsterTabs),
   });
 
   logseq.Experiments.registerFencedCodeRenderer("spell", {
