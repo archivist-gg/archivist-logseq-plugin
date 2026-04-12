@@ -1,0 +1,28 @@
+{
+  "name": "logseq-plugin-archivist",
+  "version": "0.1.0",
+  "description": "D&D 5e stat blocks, spells, and magic items for Logseq",
+  "main": "dist/index.html",
+  "logseq": {
+    "id": "archivist-ttrpg",
+    "title": "Archivist TTRPG Blocks",
+    "icon": "icon.png"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@logseq/libs": "^0.0.17",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vite-plugin-logseq": "^1.1.2",
+    "vitest": "^3.0.0"
+  }
+}
