@@ -90,10 +90,10 @@ export function createIconProperty(
 
 const ICON_PATHS: Record<string, string> = {
   dices:
-    '<path d="M21 11.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6.5"/>' +
-    '<path d="M16 2v2"/><path d="M8 2v2"/><path d="M3 8h18"/>' +
-    '<circle cx="18" cy="18" r="4"/>' +
-    '<path d="M18 16.5v3"/><path d="M16.5 18h3"/>',
+    '<rect width="12" height="12" x="2" y="10" rx="2" ry="2"/>' +
+    '<path d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6.08"/>' +
+    '<path d="M6 18h.01"/><path d="M10 14h.01"/>' +
+    '<path d="M15 6h.01"/><path d="M18 9h.01"/>',
   swords:
     '<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/>' +
     '<line x1="13" x2="19" y1="19" y2="13"/>' +
@@ -167,6 +167,8 @@ const ICON_PATHS: Record<string, string> = {
     '<path d="M5 12h14"/>',
   "chevron-down":
     '<path d="m6 9 6 6 6-6"/>',
+  "chevron-right":
+    '<path d="m9 18 6-6-6-6"/>',
   "chevron-up":
     '<path d="m18 15-6-6-6 6"/>',
   "refresh-cw":

@@ -20,17 +20,24 @@ export function findBlockUuid(el: HTMLElement): string | null {
 /**
  * Given a block UUID, query Logseq's API to determine if this block lives
  * on an entity page. If so, return the compendium context.
+ *
+ * Logseq has no `getBlockPage` method. Instead we call `getBlock(uuid)` to
+ * get the block (which includes `page: { id }`), then `getPage(id)` to
+ * resolve the page with its properties.
  */
 export async function getCompendiumContext(
   blockUuid: string,
   api: {
     Editor: {
-      getBlockPage: (uuid: string) => Promise<{ properties?: Record<string, unknown>; originalName?: string } | null>;
-      getPage: (name: string) => Promise<{ properties?: Record<string, unknown> } | null>;
+      getBlock: (uuid: string) => Promise<{ page?: { id: number } } | null>;
+      getPage: (idOrName: number | string) => Promise<{ properties?: Record<string, unknown>; originalName?: string } | null>;
     };
   },
 ): Promise<CompendiumContext | null> {
-  const page = await api.Editor.getBlockPage(blockUuid);
+  const block = await api.Editor.getBlock(blockUuid);
+  if (!block?.page?.id) return null;
+
+  const page = await api.Editor.getPage(block.page.id);
   if (!page?.properties) return null;
 
   const isEntity = page.properties["archivist"] === true;

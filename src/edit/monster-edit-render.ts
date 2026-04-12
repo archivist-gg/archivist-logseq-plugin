@@ -113,7 +113,7 @@ function collapsible(id: string, title: string, count: number | null, startOpen:
   return (
     `<div class="property-block" data-collapsible="${escapeHtml(id)}">` +
     `<div class="archivist-coll-header" data-collapse-toggle="${escapeHtml(id)}">` +
-    `<span class="${chevronCls}">${lucideIcon("chevron-down")}</span>` +
+    `<span class="${chevronCls}">${lucideIcon("chevron-right")}</span>` +
     `<h4>${escapeHtml(title)}</h4>${countStr}` +
     `</div>` +
     `<div class="archivist-collapse-body" data-collapse-body="${escapeHtml(id)}"${bodyDisplay}>` +
@@ -681,6 +681,28 @@ export function wireMonsterEditEvents(
 
   // Legendary spinners if applicable
   wireLegendarySpinners(container, state);
+
+  // -- Wire save button (from side buttons) --
+  const saveBtn = container.querySelector<HTMLElement>('[data-action="save"]');
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => {
+      callbacks.onSave(state.toYaml());
+    });
+  }
+
+  // -- Wire save-as-new button --
+  const saveAsNewBtn = container.querySelector<HTMLElement>('[data-action="save-as-new"]');
+  if (saveAsNewBtn) {
+    saveAsNewBtn.addEventListener("click", () => {
+      callbacks.onSaveAsNew(state.toYaml(), state.current.name);
+    });
+  }
+
+  // -- Wire cancel button --
+  const cancelBtn = container.querySelector<HTMLElement>('[data-action="cancel"]');
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => { callbacks.onCancel(); });
+  }
 }
 
 // ---------------------------------------------------------------------------

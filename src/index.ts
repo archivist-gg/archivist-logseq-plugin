@@ -232,6 +232,11 @@ function createStatefulBlockRenderer(
     return React.createElement("div", {
       ref: containerRef,
       className: "archivist-block",
+      // Prevent Logseq from entering code-block edit mode when clicking
+      // on the rendered stat block. Without this, any click causes Logseq
+      // to show the raw YAML fenced code block.
+      onMouseDown: (e: any) => e.stopPropagation(),
+      onClick: (e: any) => e.stopPropagation(),
     });
   };
 }

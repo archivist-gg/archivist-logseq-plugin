@@ -19,6 +19,23 @@
   font-family: "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 13px;
   color: #191813;
+  box-sizing: border-box;
+}
+
+/* Kill Logseq's blue focus ring globally on all edit controls */
+.archivist-block input:focus,
+.archivist-block textarea:focus,
+.archivist-block select:focus,
+.archivist-block button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Allow dropdowns to overflow the stat block boundary */
+.archivist-block .archivist-monster-block.editing,
+.archivist-block .archivist-spell-block.editing,
+.archivist-block .archivist-item-block.editing {
+  overflow: visible;
 }
 
 /* Property lines in edit mode — remove hanging indent, use flex for input sizing */
@@ -68,8 +85,8 @@
 }
 
 .archivist-block .archivist-edit-input:focus {
-  border-bottom-color: var(--d5e-bar-fill);
-  border-bottom-style: solid;
+  border-bottom-color: var(--d5e-bar-fill) !important;
+  border-bottom-style: solid !important;
 }
 
 /* Name input — Libre Baskerville, large, small-caps */
@@ -93,8 +110,8 @@
 }
 
 .archivist-block .archivist-edit-input-name:focus {
-  border-color: var(--d5e-bar-fill);
-  border-style: solid;
+  border-color: var(--d5e-bar-fill) !important;
+  border-style: solid !important;
 }
 
 /* Formula-width input */
@@ -140,8 +157,8 @@
 }
 
 .archivist-block .archivist-edit-select:focus {
-  border-bottom-color: var(--d5e-bar-fill);
-  border-bottom-style: solid;
+  border-bottom-color: var(--d5e-bar-fill) !important;
+  border-bottom-style: solid !important;
 }
 
 .archivist-block .archivist-edit-select option {
@@ -187,8 +204,8 @@
 }
 
 .archivist-block .archivist-num-in:focus {
-  border-color: var(--d5e-bar-fill);
-  border-style: solid;
+  border-color: var(--d5e-bar-fill) !important;
+  border-style: solid !important;
 }
 
 .archivist-block .archivist-num-spin {
@@ -353,23 +370,23 @@
   align-items: center;
   gap: 6px;
   width: 100%;
-  background: transparent;
+  background: transparent !important;
   border: none;
   cursor: pointer;
   text-align: left;
   font: inherit;
   padding: 3px 0;
-  color: var(--d5e-text-accent);
+  color: var(--d5e-text-accent) !important;
 }
 
 .archivist-block .archivist-coll-header h4 {
   font-size: 14px;
   font-weight: bold;
-  color: var(--d5e-text-accent);
+  color: var(--d5e-text-accent) !important;
 }
 
 .archivist-block .archivist-coll-chevron {
-  color: var(--d5e-bar-fill);
+  color: var(--d5e-bar-fill) !important;
   font-size: 11px;
   transition: transform 0.2s ease;
   flex-shrink: 0;
@@ -882,13 +899,13 @@
 .archivist-block .archivist-section-dropdown {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
-  background: var(--d5e-parchment);
-  border: 1px solid var(--d5e-border-tan);
+  right: 0;
+  background: var(--d5e-parchment) !important;
+  border: 1px solid var(--d5e-border-tan) !important;
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
   padding: 4px;
-  z-index: 20;
+  z-index: 100;
   min-width: 160px;
   font-family: 'Noto Sans', sans-serif;
 }
@@ -1235,8 +1252,8 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  background: var(--d5e-bar-fill);
-  color: var(--d5e-parchment);
+  background: var(--d5e-bar-fill) !important;
+  color: var(--d5e-parchment) !important;
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 2px;
@@ -1248,6 +1265,7 @@
   font-size: 13px;
   line-height: 1;
   opacity: 0.8;
+  color: var(--d5e-parchment) !important;
 }
 
 .archivist-block .archivist-tag-pill-x:hover {
@@ -1267,16 +1285,16 @@
 }
 
 .archivist-block .archivist-tag-dropdown {
-  position: absolute;
+  position: absolute !important;
   top: 100%;
   left: -1px;
   right: -1px;
   z-index: 100;
-  border: 1px solid var(--d5e-border-tan);
-  border-top: none;
-  background: var(--d5e-parchment-light, #fef8ee);
+  border: 1px solid var(--d5e-border-tan) !important;
+  border-top: none !important;
+  background: var(--d5e-parchment-light, #fef8ee) !important;
   border-radius: 0 0 3px 3px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
   max-height: 160px;
   overflow-y: auto;
 }
@@ -1284,12 +1302,13 @@
 .archivist-block .archivist-tag-dropdown-item {
   padding: 6px 10px;
   font-size: 12px;
-  color: var(--d5e-text-dark);
+  color: var(--d5e-text-dark) !important;
+  background: transparent !important;
   cursor: pointer;
 }
 
 .archivist-block .archivist-tag-dropdown-item:hover {
-  background: var(--d5e-parchment-dark, #f4e4c1);
+  background: var(--d5e-parchment-dark, #f4e4c1) !important;
 }
 
 .archivist-block .archivist-tag-dropdown-item-highlighted {
@@ -1297,26 +1316,26 @@
 }
 
 .archivist-block .archivist-tag-dropdown-item-selected {
-  color: #999;
+  color: #999 !important;
   text-decoration: line-through;
   cursor: default;
 }
 
 .archivist-block .archivist-tag-dropdown-item-selected:hover {
-  background: transparent;
+  background: transparent !important;
 }
 
 .archivist-block .archivist-tag-dropdown-custom {
   padding: 6px 10px;
   font-size: 11px;
-  color: var(--d5e-bar-fill);
+  color: var(--d5e-bar-fill) !important;
   font-style: italic;
   cursor: pointer;
-  border-top: 1px dashed var(--d5e-border-tan);
+  border-top: 1px dashed var(--d5e-border-tan) !important;
 }
 
 .archivist-block .archivist-tag-dropdown-custom:hover {
-  background: var(--d5e-parchment-dark, #f4e4c1);
+  background: var(--d5e-parchment-dark, #f4e4c1) !important;
 }
 
 /* ==========================================================================
@@ -1326,7 +1345,7 @@
 
 .archivist-block .archivist-collapse-count {
   font-size: 11px;
-  color: #766649;
+  color: #766649 !important;
   font-weight: normal;
 }
 
@@ -1363,7 +1382,7 @@
 
 .archivist-block .archivist-speed-extra-label {
   min-width: 60px;
-  color: var(--d5e-text-accent);
+  color: var(--d5e-text-accent) !important;
   font-weight: bold;
   font-size: 13px;
 }
@@ -1414,10 +1433,10 @@
   left: 0;
   right: 0;
   z-index: 100;
-  background: var(--d5e-parchment);
-  border: 1px solid var(--d5e-border-tan);
+  background: var(--d5e-parchment) !important;
+  border: 1px solid var(--d5e-border-tan) !important;
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
   padding: 4px;
   font-family: 'Noto Sans', sans-serif;
 }
@@ -1426,18 +1445,19 @@
   display: block;
   width: 100%;
   padding: 6px 10px;
-  background: transparent;
-  border: none;
+  background: transparent !important;
+  border: none !important;
   text-align: left;
   font-size: 13px;
-  color: var(--d5e-text-accent);
+  color: var(--d5e-text-accent) !important;
   font-weight: 400;
   cursor: pointer;
   border-radius: 2px;
+  box-shadow: none !important;
 }
 
 .archivist-block .archivist-speed-dropdown .archivist-speed-dropdown-item:hover {
-  background-color: rgba(217, 196, 132, 0.35);
+  background-color: rgba(217, 196, 132, 0.35) !important;
 }
 
 .archivist-block .archivist-speed-dropdown-item-taken {

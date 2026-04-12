@@ -7,17 +7,77 @@
    ========================================================================== */
 @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@400;700&display=swap');
 
-/* Logseq reset: prevent host styles from leaking into stat blocks */
+/* Logseq Override Reset — strip Logseq's fenced-code-block chrome so the
+   parchment stat block is the only visible frame. Logseq wraps plugin-rendered
+   fenced code blocks in containers that inherit the editor's dark theme border,
+   background, and padding. We neutralize all of that here. */
 .archivist-block {
   font-family: 'Libre Baskerville', 'Georgia', serif;
   font-size: 14px;
   line-height: 1.4;
   color: var(--d5e-text-dark);
   position: relative;
+  cursor: default;
+  user-select: text;
+  -webkit-user-select: text;
+  /* Remove any inherited background/border from Logseq's code block wrapper */
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .archivist-block * {
   box-sizing: border-box;
+}
+
+/* Force text elements inside stat blocks to use our colors, not Logseq's
+   dark theme colors. Logseq applies global color rules to h1-h6, p, span,
+   strong, em, a, td, th etc. We use inherit so children pick up the
+   stat block's own color cascade. Intentional colors (labels, tags, dice)
+   are then re-applied with !important on their specific selectors below.
+   NOTE: border-color is NOT reset here — that would break dice tag underlines. */
+.archivist-monster-block h1,
+.archivist-monster-block h2,
+.archivist-monster-block h3,
+.archivist-monster-block h4,
+.archivist-monster-block h5,
+.archivist-monster-block h6,
+.archivist-monster-block p,
+.archivist-monster-block span,
+.archivist-monster-block div,
+.archivist-monster-block td,
+.archivist-monster-block th,
+.archivist-monster-block strong,
+.archivist-monster-block em,
+.archivist-monster-block a,
+.archivist-spell-block h1,
+.archivist-spell-block h2,
+.archivist-spell-block h3,
+.archivist-spell-block h4,
+.archivist-spell-block h5,
+.archivist-spell-block h6,
+.archivist-spell-block p,
+.archivist-spell-block span,
+.archivist-spell-block div,
+.archivist-spell-block strong,
+.archivist-spell-block em,
+.archivist-spell-block a,
+.archivist-item-block h1,
+.archivist-item-block h2,
+.archivist-item-block h3,
+.archivist-item-block h4,
+.archivist-item-block h5,
+.archivist-item-block h6,
+.archivist-item-block p,
+.archivist-item-block span,
+.archivist-item-block div,
+.archivist-item-block strong,
+.archivist-item-block em,
+.archivist-item-block a {
+  color: inherit !important;
+  background: transparent !important;
 }
 
 /* Inline Lucide icon base style */
@@ -116,11 +176,11 @@
 }
 
 .archivist-monster-block {
-  background: var(--stat-block-bg);
+  background: var(--stat-block-bg) !important;
   font-family: 'Noto Sans', 'Myriad Pro', Calibri, Helvetica, Arial, sans-serif;
   font-size: 14px;
   line-height: 1.2em;
-  color: var(--stat-block-text);
+  color: var(--stat-block-text) !important;
   position: relative;
   box-shadow: var(--stat-block-shadow);
   padding: var(--stat-block-padding);
@@ -169,7 +229,7 @@
   font-family:
     'Libre Baskerville', 'Lora', 'Calisto MT', 'Bookman Old Style', Bookman, 'Goudy Old Style', Garamond,
     'Hoefler Text', 'Bitstream Charter', Georgia, serif;
-  color: var(--stat-block-header);
+  color: var(--stat-block-header) !important;
   font-size: 25px;
   line-height: 1.2em;
   margin: 0 0 0 -0.02em;
@@ -184,7 +244,7 @@
   font-size: 12px;
   line-height: 1.2em;
   margin: 0 0 0.35em;
-  color: var(--stat-block-text);
+  color: var(--stat-block-text) !important;
 }
 
 /* SVG Bar */
@@ -218,7 +278,7 @@
 
 .archivist-monster-block .property-line h4 {
   margin: 0;
-  color: var(--stat-block-header);
+  color: var(--stat-block-header) !important;
   font-family: 'Noto Sans', 'Myriad Pro', Calibri, Helvetica, Arial, sans-serif;
   font-size: 13px;
   font-weight: bold;
@@ -239,7 +299,7 @@
   font-style: normal;
   font-variant: normal;
   font-size: 13px;
-  color: var(--stat-block-text);
+  color: var(--stat-block-text) !important;
 }
 
 .archivist-monster-block .property-line h4:after {
@@ -250,7 +310,7 @@
 /* Abilities Table */
 .archivist-monster-block .abilities-block {
   text-align: center;
-  color: var(--stat-block-header);
+  color: var(--stat-block-header) !important;
   padding: var(--stat-block-section-gap) 0;
 }
 
@@ -258,43 +318,43 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  border: none;
+  border: none !important;
   margin: 0;
-  background: transparent;
+  background: transparent !important;
 }
 
 .archivist-monster-block .abilities-table th {
   font-weight: bold;
-  color: var(--stat-block-header);
+  color: var(--stat-block-header) !important;
   font-size: 14px;
   padding: 0.25em;
   font-family: 'Noto Sans', sans-serif;
-  border: none;
-  background: transparent;
+  border: none !important;
+  background: transparent !important;
   text-align: center;
 }
 
 .archivist-monster-block .abilities-table td {
   padding: 0.25em;
   font-size: 14px;
-  color: var(--d5e-text-dark);
-  border: none;
-  background: transparent;
+  color: var(--d5e-text-dark) !important;
+  border: none !important;
+  background: transparent !important;
   text-align: center;
 }
 
 .archivist-monster-block .abilities-table tr {
-  border: none;
-  background: transparent;
+  border: none !important;
+  background: transparent !important;
 }
 
 .archivist-monster-block .abilities-table thead tr {
-  border: none;
-  background: transparent;
+  border: none !important;
+  background: transparent !important;
 }
 
 .archivist-monster-block .abilities-table tr:hover {
-  background: transparent;
+  background: transparent !important;
 }
 
 .archivist-monster-block .ability-score {
@@ -319,28 +379,30 @@
   vertical-align: -2px;
   display: inline;
 }
-.archivist-stat-tag-dice,
-.archivist-stat-tag-damage {
-  color: #922610;
-  border-bottom: 1px dashed #922610;
+/* Stat tag colors need double-class specificity to beat the
+   `.archivist-monster-block span { color: inherit !important }` reset */
+.archivist-block .archivist-stat-tag-dice,
+.archivist-block .archivist-stat-tag-damage {
+  color: #922610 !important;
+  border-bottom: 1px dashed #922610 !important;
   cursor: pointer;
 }
-.archivist-stat-tag-dice:hover,
-.archivist-stat-tag-damage:hover {
-  color: #7a1a08;
-  border-bottom-color: #7a1a08;
+.archivist-block .archivist-stat-tag-dice:hover,
+.archivist-block .archivist-stat-tag-damage:hover {
+  color: #7a1a08 !important;
+  border-bottom-color: #7a1a08 !important;
 }
-.archivist-stat-tag-atk {
-  color: #7a200d;
+.archivist-block .archivist-stat-tag-atk {
+  color: #7a200d !important;
   font-style: italic;
   cursor: pointer;
-  border-bottom: 1px dashed #7a200d;
+  border-bottom: 1px dashed #7a200d !important;
 }
-.archivist-stat-tag-dc {
-  color: #191813;
+.archivist-block .archivist-stat-tag-dc {
+  color: #191813 !important;
 }
-.archivist-stat-tag-dc .archivist-stat-tag-icon svg {
-  color: #555;
+.archivist-block .archivist-stat-tag-dc .archivist-stat-tag-icon svg {
+  color: #555 !important;
 }
 
 /* Actions Header — PHB-style section divider (serif, small-caps, crimson) */
@@ -353,9 +415,9 @@
   font-style: normal;
   font-variant: small-caps;
   letter-spacing: 1px;
-  color: var(--stat-block-header);
+  color: var(--stat-block-header) !important;
   margin: 0.45em 0 0.1em;
-  border-bottom: 1px solid var(--stat-block-header);
+  border-bottom: 1px solid var(--stat-block-header) !important;
   padding-bottom: 0.15em;
   display: block;
 }
@@ -443,11 +505,11 @@
 }
 
 .archivist-spell-block {
-  background: #fdf1dc;
+  background: #fdf1dc !important;
   font-family: 'Noto Sans', 'Myriad Pro', Calibri, Helvetica, Arial, sans-serif;
   font-size: 14px;
   line-height: 1.2em;
-  color: #191813;
+  color: #191813 !important;
   position: relative;
   box-shadow:
     0 4px 24px rgba(134, 116, 83, 0.3),
@@ -675,11 +737,11 @@
 }
 
 .archivist-item-block {
-  background: #fdf1dc;
+  background: #fdf1dc !important;
   font-family: 'Noto Sans', 'Myriad Pro', Calibri, Helvetica, Arial, sans-serif;
   font-size: 14px;
   line-height: 1.2em;
-  color: #191813;
+  color: #191813 !important;
   position: relative;
   box-shadow:
     0 4px 24px rgba(134, 116, 83, 0.3),
@@ -904,7 +966,7 @@
   font-weight: bold;
   font-style: italic;
   font-variant: normal;
-  color: var(--stat-block-text);
+  color: var(--stat-block-text) !important;
   font-size: 13px;
   display: inline;
   margin-right: 0.25em;
@@ -917,7 +979,7 @@
   font-style: normal;
   font-variant: normal;
   font-size: 13px;
-  color: var(--stat-block-text);
+  color: var(--stat-block-text) !important;
 }
 
 /* 8. Tab Navigation (from monster stat block)
