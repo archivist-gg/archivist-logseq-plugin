@@ -10,6 +10,12 @@ import { renderSpellBlock } from "./renderers/spell-renderer";
 import { renderItemBlock } from "./renderers/item-renderer";
 import { renderErrorBlock } from "./renderers/renderer-utils";
 import css from "./styles/archivist-dnd.css?raw";
+import searchCss from "./ui/entity-search.css?raw";
+import { SrdStore } from "./srd/srd-store";
+import { EntityRegistry } from "./entities/entity-registry";
+import { CompendiumManager } from "./entities/compendium-manager";
+import { importSrdToLogseq } from "./entities/entity-importer";
+import { initEntitySearch, showSearch } from "./ui/entity-search";
 
 type ParseResult<T> =
   | { success: true; data: T }
@@ -58,7 +64,7 @@ function createBlockRenderer(
 
 async function main() {
   // Inject parchment CSS
-  logseq.provideStyle(css);
+  logseq.provideStyle(css + "\n" + searchCss);
 
   // Register fenced code block renderers
   logseq.Experiments.registerFencedCodeRenderer("monster", {
@@ -127,7 +133,51 @@ entries:
 \`\`\``);
   });
 
-  console.log("Archivist TTRPG Blocks loaded");
+  // --- Phase 2: Entity & Compendium System ---
+  const srdStore = new SrdStore();
+  srdStore.loadFromBundledJson();
+
+  const registry = new EntityRegistry();
+  const manager = new CompendiumManager(registry, logseq as any);
+
+  await manager.discover();
+  await manager.loadAllEntities();
+
+  initEntitySearch(registry);
+
+  logseq.App.registerCommandPalette(
+    { key: "archivist-import-srd", label: "Archivist: Import SRD Compendium" },
+    async () => {
+      const existing = manager.getByName("SRD");
+      if (existing) {
+        await logseq.UI.showMsg("SRD compendium already imported", "warning");
+        return;
+      }
+      await logseq.UI.showMsg("Importing SRD compendium...", "success", { timeout: 3000 });
+      const count = await importSrdToLogseq(
+        srdStore, manager, registry, logseq as any,
+        (current, total) => {
+          logseq.UI.showMsg(
+            `Importing SRD: ${current}/${total} entities...`,
+            "success",
+            { key: "srd-import-progress", timeout: 10000 },
+          );
+        },
+      );
+      await logseq.UI.showMsg(
+        `SRD import complete: ${count} entities imported`,
+        "success",
+        { key: "srd-import-progress", timeout: 5000 },
+      );
+    },
+  );
+
+  logseq.App.registerCommandPalette(
+    { key: "archivist-search-entity", label: "Archivist: Search Entity" },
+    async () => { await showSearch(); },
+  );
+
+  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2)");
 }
 
 logseq.ready(main).catch(console.error);
