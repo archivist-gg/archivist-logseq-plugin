@@ -128,6 +128,10 @@ function createStatefulBlockRenderer(
         if (postRender) postRender(el);
         wireSideButtonEvents(el, buildCallbacks(data), { signal });
       }
+
+      // Hide Logseq's native fenced-code-block toolbar buttons (resize/refresh)
+      // that appear as siblings of the plugin's rendered container.
+      hideLogseqCodeToolbar(el);
     }, [props.content, mode, columns, compCtx]);
 
     function buildCallbacks(data: any): SideButtonCallbacks {
@@ -239,6 +243,28 @@ function createStatefulBlockRenderer(
       onClick: (e: any) => e.stopPropagation(),
     });
   };
+}
+
+/**
+ * Hide Logseq's native fenced-code-block toolbar (resize/refresh buttons).
+ * Walks up from the plugin's container to find the fenced-code-block wrapper,
+ * then hides any sibling elements that aren't part of the plugin's rendering.
+ */
+function hideLogseqCodeToolbar(el: HTMLElement): void {
+  // Walk up to find the fenced code block container
+  let parent = el.parentElement;
+  while (parent && !parent.classList.contains("fenced-code-block")) {
+    parent = parent.parentElement;
+  }
+  if (!parent) return;
+
+  // Hide all children of the fenced-code-block that aren't our container
+  for (const child of Array.from(parent.children)) {
+    if (child === el || child.contains(el) || (child as HTMLElement).querySelector?.(".archivist-block")) {
+      continue;
+    }
+    (child as HTMLElement).style.display = "none";
+  }
 }
 
 async function main() {
