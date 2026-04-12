@@ -1,13 +1,9 @@
 // src/edit/block-utils.ts
 
-export interface BlockContext {
-  blockUuid: string;
-}
-
 export interface CompendiumContext {
   slug: string;
   compendium: string;
-  entityType: "monster" | "spell" | "item";
+  entityType: "monster" | "spell" | "magic-item";
   readonly: boolean;
 }
 
@@ -42,7 +38,10 @@ export async function getCompendiumContext(
 
   const slug = String(page.properties["slug"] ?? "");
   const compendiumName = String(page.properties["compendium"] ?? "");
-  const entityType = String(page.properties["entity-type"] ?? "monster") as CompendiumContext["entityType"];
+  const VALID_ENTITY_TYPES = new Set<CompendiumContext["entityType"]>(["monster", "spell", "magic-item"]);
+  const rawType = String(page.properties["entity-type"] ?? "");
+  if (!VALID_ENTITY_TYPES.has(rawType as CompendiumContext["entityType"])) return null;
+  const entityType = rawType as CompendiumContext["entityType"];
 
   if (!slug || !compendiumName) return null;
 
