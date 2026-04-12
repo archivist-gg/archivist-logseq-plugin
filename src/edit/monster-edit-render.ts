@@ -7,6 +7,7 @@ import { monsterToEditable } from "../dnd/editable-monster";
 import type { EditableMonster } from "../dnd/editable-monster";
 import { MonsterEditState } from "./edit-state";
 import { createSearchableTagSelect } from "./searchable-tag-select";
+import { attachTagAutocomplete } from "./tag-autocomplete";
 import type { CompendiumContext } from "./block-utils";
 import type { EditCallbacks } from "../index";
 import {
@@ -671,6 +672,13 @@ export function wireMonsterEditEvents(
     rebuildTabContent(container, state, activeTabKey);
   });
 
+  // -- Attach tag autocomplete to feature textareas --
+  container.querySelectorAll("textarea.archivist-feat-text-input").forEach((ta) => {
+    if (ta instanceof HTMLTextAreaElement) {
+      attachTagAutocomplete(ta, state);
+    }
+  });
+
   // Legendary spinners if applicable
   wireLegendarySpinners(container, state);
 }
@@ -1284,6 +1292,13 @@ function wireFeatureCards(
       wireFeatureCards(container, state, activeTabKey, onTabChange);
     });
   }
+
+  // Attach tag autocomplete to all feature textareas
+  container.querySelectorAll("textarea.archivist-feat-text-input").forEach((ta) => {
+    if (ta instanceof HTMLTextAreaElement) {
+      attachTagAutocomplete(ta, state);
+    }
+  });
 }
 
 function wireLegendarySpinners(container: HTMLElement, state: MonsterEditState): void {
