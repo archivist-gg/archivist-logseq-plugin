@@ -23,6 +23,7 @@ import { renderSideButtons, wireSideButtonEvents } from "./edit/side-buttons";
 import type { SideButtonCallbacks } from "./edit/side-buttons";
 import { showCompendiumPicker } from "./edit/compendium-picker";
 import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edit-render";
+import { renderSpellEditMode, wireSpellEditEvents } from "./edit/spell-edit-render";
 
 type ParseResult<T> =
   | { success: true; data: T }
@@ -262,7 +263,7 @@ async function main() {
   });
 
   logseq.Experiments.registerFencedCodeRenderer("spell", {
-    render: createStatefulBlockRenderer("spell", parseSpell, renderSpellBlock, null, null),
+    render: createStatefulBlockRenderer("spell", parseSpell, renderSpellBlock, renderSpellEditMode, wireSpellEditEvents),
   });
 
   logseq.Experiments.registerFencedCodeRenderer("item", {
