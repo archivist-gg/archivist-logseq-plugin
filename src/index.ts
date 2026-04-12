@@ -57,7 +57,9 @@ function createStatefulBlockRenderer(
   return (props: { content: string }) => {
     const React = logseq.Experiments.React! as any;
     const containerRef = React.useRef(null) as { current: HTMLDivElement | null };
-    const [mode, setMode] = React.useState("view") as [string, (m: string) => void];
+    const [mode, setMode] = React.useState(
+      logseq.settings?.defaultEditMode === "source" ? "source" : "view"
+    ) as [string, (m: string) => void];
     const [blockUuid, setBlockUuid] = React.useState(null) as [string | null, (u: string | null) => void];
     const [compCtx, setCompCtx] = React.useState(null) as [CompendiumContext | null, (c: CompendiumContext | null) => void];
     const [columns, setColumns] = React.useState(
@@ -146,13 +148,8 @@ function createStatefulBlockRenderer(
           }
         },
         onDeleteEntity: compCtx ? async () => {
-          const uuid = blockUuid || findBlockUuid(containerRef.current!);
-          if (uuid) {
-            const page = await (logseq as any).Editor.getBlockPage(uuid);
-            if (page?.originalName) {
-              await logseq.Editor.deletePage(page.originalName);
-            }
-          }
+          if (!managerRef) return;
+          await managerRef.deleteEntity(compCtx.slug);
         } : undefined,
       };
     }
