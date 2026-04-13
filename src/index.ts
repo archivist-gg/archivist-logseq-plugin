@@ -25,6 +25,9 @@ import { showCompendiumPicker } from "./edit/compendium-picker";
 import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edit-render";
 import { renderSpellEditMode, wireSpellEditEvents } from "./edit/spell-edit-render";
 import { renderItemEditMode, wireItemEditEvents } from "./edit/item-edit-render";
+import { createInlineTagExtension } from "./extensions/inline-tag-extension";
+import { createCompendiumRefExtension, setCompendiumRefRegistry, setCompendiumRefManager } from "./extensions/compendium-ref-extension";
+import { createCompendiumCompletion, setCompendiumSuggestRegistry } from "./extensions/compendium-suggest";
 
 type ParseResult<T> =
   | { success: true; data: T }
@@ -378,6 +381,30 @@ entries:
 
   initEntitySearch(registry);
 
+  // --- Phase 4: CM6 Editor Extensions ---
+  setCompendiumRefRegistry(registry);
+  setCompendiumRefManager(manager);
+  setCompendiumSuggestRegistry(registry);
+
+  logseq.Experiments.registerExtensionsEnhancer("codemirror", async (cm: any) => {
+    const extensions: any[] = [];
+
+    // Inline tag pills
+    extensions.push(createInlineTagExtension(cm));
+
+    // Compendium ref stat blocks
+    const { plugin: refPlugin } = createCompendiumRefExtension(cm);
+    extensions.push(refPlugin);
+
+    // Compendium autocomplete (may not be available if CM6 autocomplete module is missing)
+    const completion = createCompendiumCompletion(cm);
+    if (completion && (!Array.isArray(completion) || completion.length > 0)) {
+      extensions.push(completion);
+    }
+
+    return extensions;
+  });
+
   logseq.App.registerCommandPalette(
     { key: "archivist-import-srd", label: "Archivist: Import SRD Compendium" },
     async () => {
@@ -410,7 +437,7 @@ entries:
     async () => { await showSearch(); },
   );
 
-  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 edit mode)");
+  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4 CM6 extensions)");
 }
 
 logseq.ready(main).catch(console.error);
