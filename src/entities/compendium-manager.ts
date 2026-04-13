@@ -40,6 +40,40 @@ export interface LogseqApi {
 }
 
 // ---------------------------------------------------------------------------
+// Logseq property key normalization helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Logseq normalizes property keys inconsistently across API surfaces.
+ * A key written as "entity-type" in createPage may be returned as
+ * "entityType" (camelCase), "entity_type" (snake_case), or "entitytype"
+ * (flatcase) when read back via datascriptQuery + page.properties.
+ *
+ * This helper tries the original key plus all normalized variants.
+ */
+function prop(props: Record<string, any>, key: string, fallback?: any): any {
+  if (key in props) return props[key];
+
+  // Try camelCase: "entity-type" -> "entityType"
+  const camel = key.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+  if (camel in props) return props[camel];
+
+  // Try snake_case: "entity-type" -> "entity_type"
+  const snake = key.replace(/-/g, "_");
+  if (snake in props) return props[snake];
+
+  // Try flatcase: "entity-type" -> "entitytype"
+  const flat = key.replace(/-/g, "");
+  if (flat in props) return props[flat];
+
+  return fallback;
+}
+
+function isTruthy(val: any): boolean {
+  return val === true || val === "true";
+}
+
+// ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
 
@@ -149,26 +183,44 @@ export class CompendiumManager {
    * `archivist-compendium` property set to true.
    */
   async discover(): Promise<void> {
-    const results = await this.api.DB.datascriptQuery(
-      `[:find (pull ?p [*])
+    // Datascript property-based queries use keyword formats that vary across
+    // Logseq versions. Instead, find pages that have namespaced children
+    // (a signal they might be compendiums) and check via getPage() which
+    // reliably returns camelCase properties.
+    const nsResults = await this.api.DB.datascriptQuery(
+      `[:find ?parent
         :where
-        [?p :block/properties ?props]
-        [(get ?props :archivist-compendium) ?v]
-        [(= ?v true)]]`,
+        [?p :block/namespace ?ns]
+        [?ns :block/name ?parent]]`,
     );
 
-    for (const [page] of results) {
-      if (!page || !page.properties) continue;
-      const props = page.properties;
+    const parentNames = new Set<string>();
+    for (const [name] of nsResults) {
+      if (typeof name === "string") parentNames.add(name);
+    }
 
-      const comp: Compendium = {
-        name: page.originalName || page.name,
-        description: props["compendium-description"] || "",
-        readonly: props["compendium-readonly"] === true,
-        homebrew: props["compendium-homebrew"] === true,
-      };
+    console.log("[archivist] discover() checking", parentNames.size, "namespace parents");
 
-      this.addCompendium(comp);
+    for (const parentName of parentNames) {
+      try {
+        const page = await this.api.Editor.getPage(parentName);
+        if (!page?.properties) continue;
+
+        const flag = prop(page.properties, "archivist-compendium");
+        if (!isTruthy(flag)) continue;
+
+        const comp: Compendium = {
+          name: page.originalName || page.name,
+          description: prop(page.properties, "compendium-description", "") as string,
+          readonly: isTruthy(prop(page.properties, "compendium-readonly", false)),
+          homebrew: isTruthy(prop(page.properties, "compendium-homebrew", false)),
+        };
+
+        this.addCompendium(comp);
+        console.log("[archivist] discover() found compendium:", comp.name);
+      } catch {
+        // skip
+      }
     }
   }
 
@@ -182,62 +234,96 @@ export class CompendiumManager {
   async loadAllEntities(): Promise<number> {
     let totalCount = 0;
 
-    const results = await this.api.DB.datascriptQuery(
-      `[:find (pull ?p [*])
-        :where
-        [?p :block/properties ?props]
-        [(get ?props :archivist) ?v]
-        [(= ?v true)]]`,
-    );
+    // Datascript property queries are unreliable across Logseq versions.
+    // Instead, use structural namespace queries (which work reliably) to
+    // find entity pages, then getPage() for property access.
+    //
+    // Entity pages are grandchildren of compendium pages:
+    //   SRD / Monsters / Goblin
+    //   ^comp  ^type     ^entity
+    for (const [compName, comp] of this.compendiums) {
+      // Find the compendium page's DB id
+      const compResults = await this.api.DB.datascriptQuery(
+        `[:find ?id :in $ ?name :where [?id :block/name ?name]]`,
+        `"${compName.toLowerCase()}"`,
+      );
+      if (compResults.length === 0) continue;
+      const compId = compResults[0][0];
 
-    for (const [page] of results) {
-      if (!page || !page.properties) continue;
-      const props = page.properties;
+      // Find type-folder pages (direct children of compendium)
+      const typeResults = await this.api.DB.datascriptQuery(
+        `[:find ?id :in $ ?parent :where [?id :block/namespace ?parent]]`,
+        compId,
+      );
 
-      // Backward compat: "magic-item" was renamed to "item"
-      let entityType = props["entity-type"];
-      if (entityType === "magic-item") entityType = "item";
-      const slug = props["slug"];
-      const name = props["name"];
-      const compendiumName = props["compendium"];
-
-      if (
-        typeof entityType !== "string" ||
-        typeof slug !== "string" ||
-        typeof name !== "string" ||
-        typeof compendiumName !== "string"
-      ) {
-        continue;
-      }
-
-      const comp = this.compendiums.get(compendiumName);
-      if (!comp) continue;
-
-      // Read first block for YAML data
-      const pageName = page.originalName || page.name;
-      const blocks = await this.api.Editor.getPageBlocksTree(pageName);
-      let data: Record<string, unknown> = {};
-
-      if (blocks.length > 0) {
-        const extracted = extractYamlFromBlock(blocks[0].content);
-        if (extracted) {
-          data = extracted;
+      // Find entity pages (children of type-folders)
+      const entityPageIds: number[] = [];
+      for (const [typeId] of typeResults) {
+        const entityResults = await this.api.DB.datascriptQuery(
+          `[:find ?id :in $ ?parent :where [?id :block/namespace ?parent]]`,
+          typeId,
+        );
+        for (const [entityId] of entityResults) {
+          entityPageIds.push(entityId);
         }
       }
 
-      const registered: RegisteredEntity = {
-        slug,
-        name,
-        entityType,
-        filePath: pageName,
-        data,
-        compendium: compendiumName,
-        readonly: comp.readonly,
-        homebrew: comp.homebrew,
-      };
+      console.log("[archivist] loadAllEntities() compendium", compName, ":", entityPageIds.length, "entity pages");
 
-      this.registry.register(registered);
-      totalCount++;
+      // Load each entity via getPage() for reliable property access
+      for (const pageId of entityPageIds) {
+        try {
+          const page = await this.api.Editor.getPage(pageId);
+          if (!page?.properties) continue;
+          const props = page.properties;
+
+          const archivistFlag = prop(props, "archivist");
+          if (!isTruthy(archivistFlag)) continue;
+
+          let entityType = prop(props, "entity-type") as string | undefined;
+          if (entityType === "magic-item") entityType = "item";
+          const slug = prop(props, "slug") as string | undefined;
+          const name = prop(props, "name") as string | undefined;
+          const compendiumName = prop(props, "compendium") as string | undefined;
+
+          if (
+            typeof entityType !== "string" ||
+            typeof slug !== "string" ||
+            typeof name !== "string" ||
+            typeof compendiumName !== "string"
+          ) {
+            continue;
+          }
+
+          // Read first block for YAML data
+          const pageName = page.originalName || page.name;
+          const blocks = await this.api.Editor.getPageBlocksTree(pageName);
+          let data: Record<string, unknown> = {};
+
+          if (blocks.length > 0) {
+            const extracted = extractYamlFromBlock(blocks[0].content);
+            if (extracted) {
+              data = extracted;
+            }
+          }
+
+          const registered: RegisteredEntity = {
+            slug,
+            name,
+            entityType,
+            filePath: pageName,
+            data,
+            compendium: compendiumName,
+            readonly: comp.readonly,
+            homebrew: comp.homebrew,
+          };
+
+          this.registry.register(registered);
+          totalCount++;
+        } catch {
+          // Skip inaccessible pages
+        }
+      }
     }
 
     return totalCount;

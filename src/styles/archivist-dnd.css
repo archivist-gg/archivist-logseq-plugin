@@ -1820,3 +1820,121 @@ body.theme-light .archivist-tag-atk:hover {
   background: var(--background-modifier-hover);
 }
 
+/* ===========================================================================
+   Phase 4: CM6 Extension Styles
+   =========================================================================== */
+
+/* --- Inline tag pills in CM6 editor --- */
+.cm-editor .archivist-inline-tag-widget {
+  display: inline;
+  vertical-align: baseline;
+}
+
+.cm-editor .archivist-inline-tag-widget .archivist-stat-tag {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: baseline;
+  font-size: 0.9em;
+  line-height: 1.4;
+  cursor: default;
+}
+
+/* --- Compendium ref container --- */
+.archivist-compendium-ref {
+  position: relative;
+  margin: 8px 0;
+  border-radius: 4px;
+}
+
+.archivist-compendium-badge {
+  position: absolute;
+  top: 4px;
+  right: 40px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #922610;
+  background: rgba(253, 241, 220, 0.9);
+  border: 1px solid #d9c484;
+  border-radius: 3px;
+  padding: 1px 6px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* --- Compendium ref error / not found --- */
+.archivist-compendium-ref-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #fdf1dc;
+  border: 1px dashed #d9c484;
+  border-radius: 4px;
+  color: #7a200d;
+  font-family: 'Noto Sans', 'Helvetica Neue', sans-serif;
+  font-size: 13px;
+}
+
+.archivist-not-found-icon {
+  flex-shrink: 0;
+  color: #922610;
+}
+
+.archivist-not-found-icon .archivist-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.archivist-not-found-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.archivist-not-found-label {
+  font-weight: 600;
+  color: #922610;
+}
+
+.archivist-not-found-ref {
+  font-family: monospace;
+  font-size: 12px;
+  color: #7a200d;
+  opacity: 0.7;
+}
+
+/* --- Completion dropdown parchment theme --- */
+.cm-tooltip-autocomplete {
+  background: #fdf1dc !important;
+  border: 1px solid #d9c484 !important;
+  border-radius: 4px !important;
+  font-family: 'Noto Sans', 'Helvetica Neue', sans-serif !important;
+  font-size: 13px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.cm-tooltip-autocomplete ul li {
+  padding: 4px 8px !important;
+  color: #7a200d !important;
+}
+
+.cm-tooltip-autocomplete ul li[aria-selected] {
+  background: #922610 !important;
+  color: #fdf1dc !important;
+}
+
+.cm-tooltip-autocomplete .cm-completionDetail {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  opacity: 0.7;
+  margin-left: 8px;
+}
+
+.cm-tooltip-autocomplete .cm-completionInfo {
+  font-size: 10px;
+  opacity: 0.5;
+}
+

@@ -1,5 +1,20 @@
 // src/edit/block-utils.ts
 
+/**
+ * Logseq normalizes property keys (hyphens -> camelCase/underscores).
+ * Try the original key plus all normalized variants.
+ */
+function prop(props: Record<string, any>, key: string, fallback?: any): any {
+  if (key in props) return props[key];
+  const camel = key.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+  if (camel in props) return props[camel];
+  const snake = key.replace(/-/g, "_");
+  if (snake in props) return props[snake];
+  const flat = key.replace(/-/g, "");
+  if (flat in props) return props[flat];
+  return fallback;
+}
+
 export interface CompendiumContext {
   slug: string;
   compendium: string;
@@ -40,13 +55,14 @@ export async function getCompendiumContext(
   const page = await api.Editor.getPage(block.page.id);
   if (!page?.properties) return null;
 
-  const isEntity = page.properties["archivist"] === true;
+  const props = page.properties;
+  const isEntity = prop(props, "archivist") === true;
   if (!isEntity) return null;
 
-  const slug = String(page.properties["slug"] ?? "");
-  const compendiumName = String(page.properties["compendium"] ?? "");
+  const slug = String(prop(props, "slug", ""));
+  const compendiumName = String(prop(props, "compendium", ""));
   const VALID_ENTITY_TYPES = new Set<CompendiumContext["entityType"]>(["monster", "spell", "item"]);
-  let rawType = String(page.properties["entity-type"] ?? "");
+  let rawType = String(prop(props, "entity-type", ""));
   // Backward compat: "magic-item" was renamed to "item"
   if (rawType === "magic-item") rawType = "item";
   if (!VALID_ENTITY_TYPES.has(rawType as CompendiumContext["entityType"])) return null;
@@ -56,7 +72,8 @@ export async function getCompendiumContext(
 
   // Check if the compendium is readonly
   const compendiumPage = await api.Editor.getPage(compendiumName);
-  const readonly = compendiumPage?.properties?.["compendium-readonly"] === true;
+  const compendiumProps = compendiumPage?.properties ?? {};
+  const readonly = prop(compendiumProps, "compendium-readonly", false) === true;
 
   return { slug, compendium: compendiumName, entityType, readonly };
 }

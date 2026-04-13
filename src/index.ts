@@ -25,6 +25,7 @@ import { showCompendiumPicker } from "./edit/compendium-picker";
 import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edit-render";
 import { renderSpellEditMode, wireSpellEditEvents } from "./edit/spell-edit-render";
 import { renderItemEditMode, wireItemEditEvents } from "./edit/item-edit-render";
+import { startInlineTagObserver } from "./extensions/inline-tag-observer";
 
 type ParseResult<T> =
   | { success: true; data: T }
@@ -373,10 +374,28 @@ entries:
   await manager.discover();
   await manager.loadAllEntities();
 
+  console.log("[archivist] Loaded:", registry.count(), "entities from", manager.getAll().map(c => c.name).join(", ") || "no compendiums");
+
   managerRef = manager;
   registryRef = registry;
 
   initEntitySearch(registry);
+
+  // --- Phase 4: Inline tag DOM observer ---
+  // Logseq's block editor is a textarea, not CM6. We post-process rendered
+  // blocks to replace <code>dice:2d6</code> elements with styled pills.
+  // Access the host document (Logseq's main frame) from the plugin iframe.
+  try {
+    const hostDoc = parent?.document ?? top?.document;
+    if (hostDoc) {
+      console.log("[archivist] Setting up inline tag DOM observer on host document");
+      startInlineTagObserver(hostDoc);
+    } else {
+      console.warn("[archivist] Could not access host document for inline tag observer");
+    }
+  } catch (e) {
+    console.warn("[archivist] Inline tag observer setup failed (cross-origin?):", e);
+  }
 
   logseq.App.registerCommandPalette(
     { key: "archivist-import-srd", label: "Archivist: Import SRD Compendium" },
@@ -410,7 +429,7 @@ entries:
     async () => { await showSearch(); },
   );
 
-  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 edit mode)");
+  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4 inline tags)");
 }
 
 logseq.ready(main).catch(console.error);
