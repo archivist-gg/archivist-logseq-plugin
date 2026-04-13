@@ -38,18 +38,50 @@ export function detectCompendiumTrigger(
   // Already closed -- no trigger
   if (afterOpen.includes("}}")) return null;
 
-  // Check for type prefix
-  const colonIdx = afterOpen.indexOf(":");
   let entityType: string | undefined;
   let query: string;
 
+  // Handle {{renderer :type, query syntax (Logseq macro format)
+  const rendererMatch = afterOpen.match(/^renderer\s+:(\w+),\s*(.*)/i);
+  if (rendererMatch) {
+    const prefix = rendererMatch[1].toLowerCase();
+    if (VALID_PREFIXES.has(prefix)) {
+      entityType = prefix;
+      query = rendererMatch[2].trim();
+    } else {
+      entityType = undefined;
+      query = rendererMatch[2].trim();
+    }
+    return { from: lastOpen, query, entityType };
+  }
+
+  // Handle {{renderer :type (no comma yet)
+  const rendererTypeMatch = afterOpen.match(/^renderer\s+:(\w+)$/i);
+  if (rendererTypeMatch) {
+    const prefix = rendererTypeMatch[1].toLowerCase();
+    if (VALID_PREFIXES.has(prefix)) {
+      entityType = prefix;
+      query = "";
+    } else {
+      entityType = undefined;
+      query = "";
+    }
+    return { from: lastOpen, query, entityType };
+  }
+
+  // Handle {{renderer (just started typing)
+  if (/^renderer\s*$/i.test(afterOpen)) {
+    return { from: lastOpen, query: "", entityType: undefined };
+  }
+
+  // Handle legacy {{type:query syntax
+  const colonIdx = afterOpen.indexOf(":");
   if (colonIdx !== -1) {
     const prefix = afterOpen.substring(0, colonIdx).toLowerCase().trim();
     if (VALID_PREFIXES.has(prefix)) {
       entityType = prefix;
       query = afterOpen.substring(colonIdx + 1).trim();
     } else {
-      // Unknown prefix -- treat entire thing as query
       entityType = undefined;
       query = afterOpen;
     }
@@ -97,7 +129,7 @@ export function createCompendiumCompletion(cm: any): any {
         label: entity.name,
         detail: entity.entityType,
         info: entity.compendium,
-        apply: `{{${entity.entityType}:${entity.slug}}}`,
+        apply: `{{renderer :${entity.entityType}, ${entity.slug}}}`,
       })),
     };
   }

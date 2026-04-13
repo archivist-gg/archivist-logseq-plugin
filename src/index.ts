@@ -1,4 +1,5 @@
 import "@logseq/libs";
+import * as yaml from "js-yaml";
 import { parseMonster } from "./parsers/monster-parser";
 import { parseSpell } from "./parsers/spell-parser";
 import { parseItem } from "./parsers/item-parser";
@@ -26,7 +27,7 @@ import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edi
 import { renderSpellEditMode, wireSpellEditEvents } from "./edit/spell-edit-render";
 import { renderItemEditMode, wireItemEditEvents } from "./edit/item-edit-render";
 import { createInlineTagExtension } from "./extensions/inline-tag-extension";
-import { createCompendiumRefExtension, setCompendiumRefRegistry, setCompendiumRefManager } from "./extensions/compendium-ref-extension";
+import { setCompendiumRefRegistry, setCompendiumRefManager } from "./extensions/compendium-ref-extension";
 import { createCompendiumCompletion, setCompendiumSuggestRegistry } from "./extensions/compendium-suggest";
 
 type ParseResult<T> =
@@ -386,15 +387,85 @@ entries:
   setCompendiumRefManager(manager);
   setCompendiumSuggestRegistry(registry);
 
+  // --- Phase 4: Macro-based compendium ref rendering (read mode) ---
+  const MACRO_ENTITY_TYPES = new Set(["monster", "spell", "item"]);
+
+  logseq.App.onMacroRendererSlotted(({ slot, payload }) => {
+    const [type, ...args] = payload.arguments;
+    if (!type) return;
+
+    const typeClean = type.startsWith(":") ? type.slice(1) : type;
+    if (!MACRO_ENTITY_TYPES.has(typeClean)) return;
+
+    const slug = args[0]?.trim();
+    if (!slug) return;
+
+    const entity = registry.getBySlug(slug);
+    if (!entity) {
+      logseq.provideUI({
+        key: `archivist-ref-${slot}`,
+        slot,
+        template: `<div class="archivist-compendium-ref-error">
+          <div class="archivist-not-found-text">
+            <div class="archivist-not-found-label">Entity not found</div>
+            <div class="archivist-not-found-ref">${escapeHtml(typeClean)}:${escapeHtml(slug)}</div>
+          </div>
+        </div>`,
+        reset: true,
+      });
+      return;
+    }
+
+    // Type mismatch check
+    if (entity.entityType !== typeClean) {
+      logseq.provideUI({
+        key: `archivist-ref-${slot}`,
+        slot,
+        template: `<div class="archivist-compendium-ref-error">
+          <div class="archivist-not-found-text">
+            <div class="archivist-not-found-label">Type mismatch</div>
+            <div class="archivist-not-found-ref">Expected ${escapeHtml(typeClean)}, found ${escapeHtml(entity.entityType)}</div>
+          </div>
+        </div>`,
+        reset: true,
+      });
+      return;
+    }
+
+    // Render entity stat block
+    const yamlStr = yaml.dump(entity.data, { lineWidth: -1, noRefs: true });
+    let blockHtml = "";
+
+    if (entity.entityType === "monster") {
+      const result = parseMonster(yamlStr);
+      if (result.success) blockHtml = renderMonsterBlock(result.data, 1);
+    } else if (entity.entityType === "spell") {
+      const result = parseSpell(yamlStr);
+      if (result.success) blockHtml = renderSpellBlock(result.data);
+    } else if (entity.entityType === "item") {
+      const result = parseItem(yamlStr);
+      if (result.success) blockHtml = renderItemBlock(result.data);
+    }
+
+    if (!blockHtml) return;
+
+    logseq.provideUI({
+      key: `archivist-ref-${slot}`,
+      slot,
+      template: `<div class="archivist-block archivist-compendium-ref">${blockHtml}
+        <div class="archivist-compendium-badge">${escapeHtml(entity.compendium)}</div>
+      </div>`,
+      reset: true,
+      style: { width: "100%" },
+    });
+  });
+
+  // --- Phase 4: CM6 Editor Extensions ---
   logseq.Experiments.registerExtensionsEnhancer("codemirror", async (cm: any) => {
     const extensions: any[] = [];
 
-    // Inline tag pills
+    // Inline tag pills (edit mode only)
     extensions.push(createInlineTagExtension(cm));
-
-    // Compendium ref stat blocks
-    const { plugin: refPlugin } = createCompendiumRefExtension(cm);
-    extensions.push(refPlugin);
 
     // Compendium autocomplete (may not be available if CM6 autocomplete module is missing)
     const completion = createCompendiumCompletion(cm);
