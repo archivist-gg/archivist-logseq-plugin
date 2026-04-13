@@ -26,9 +26,9 @@ import { showCompendiumPicker } from "./edit/compendium-picker";
 import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edit-render";
 import { renderSpellEditMode, wireSpellEditEvents } from "./edit/spell-edit-render";
 import { renderItemEditMode, wireItemEditEvents } from "./edit/item-edit-render";
-import { createInlineTagExtension } from "./extensions/inline-tag-extension";
 import { setCompendiumRefRegistry, setCompendiumRefManager } from "./extensions/compendium-ref-extension";
-import { createCompendiumCompletion, setCompendiumSuggestRegistry } from "./extensions/compendium-suggest";
+import { setCompendiumSuggestRegistry } from "./extensions/compendium-suggest";
+import { startInlineTagObserver } from "./extensions/inline-tag-observer";
 
 type ParseResult<T> =
   | { success: true; data: T }
@@ -382,6 +382,14 @@ entries:
 
   initEntitySearch(registry);
 
+  // Debug: log registry state after loading
+  console.log("[archivist] Registry loaded:", registry.count(), "entities");
+  const slugs = registry.getAllSlugs();
+  if (slugs.size > 0) {
+    console.log("[archivist] Sample slugs:", [...slugs].slice(0, 5));
+    console.log("[archivist] Has 'goblin':", slugs.has("goblin"));
+  }
+
   // --- Phase 4: CM6 Editor Extensions ---
   setCompendiumRefRegistry(registry);
   setCompendiumRefManager(manager);
@@ -391,11 +399,13 @@ entries:
   const MACRO_ENTITY_TYPES = new Set(["monster", "spell", "item"]);
 
   logseq.App.onMacroRendererSlotted(({ slot, payload }) => {
+    console.log("[archivist] Macro renderer called:", payload.arguments);
     const [type, ...args] = payload.arguments;
     if (!type) return;
 
     const typeClean = type.startsWith(":") ? type.slice(1) : type;
     if (!MACRO_ENTITY_TYPES.has(typeClean)) return;
+    console.log("[archivist] Matched type:", typeClean, "slug:", args[0], "registry size:", registry.count());
 
     const slug = args[0]?.trim();
     if (!slug) return;
@@ -460,20 +470,14 @@ entries:
     });
   });
 
-  // --- Phase 4: CM6 Editor Extensions ---
-  logseq.Experiments.registerExtensionsEnhancer("codemirror", async (cm: any) => {
-    const extensions: any[] = [];
-
-    // Inline tag pills (edit mode only)
-    extensions.push(createInlineTagExtension(cm));
-
-    // Compendium autocomplete (may not be available if CM6 autocomplete module is missing)
-    const completion = createCompendiumCompletion(cm);
-    if (completion && (!Array.isArray(completion) || completion.length > 0)) {
-      extensions.push(completion);
-    }
-
-    return extensions;
+  // --- Phase 4: Inline tag DOM observer ---
+  // Logseq's block editor is a textarea, not CM6. We post-process rendered
+  // blocks to replace <code>dice:2d6</code> elements with styled pills.
+  // The observer runs in the host scope via the enhancer callback.
+  logseq.Experiments.registerExtensionsEnhancer("codemirror", async (_cm: any) => {
+    console.log("[archivist] Setting up inline tag DOM observer");
+    startInlineTagObserver(document);
+    return [];
   });
 
   logseq.App.registerCommandPalette(

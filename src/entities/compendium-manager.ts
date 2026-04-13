@@ -40,6 +40,36 @@ export interface LogseqApi {
 }
 
 // ---------------------------------------------------------------------------
+// Logseq property key normalization helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Logseq normalizes property keys inconsistently across API surfaces.
+ * A key written as "entity-type" in createPage may be returned as
+ * "entityType" (camelCase), "entity_type" (snake_case), or "entitytype"
+ * (flatcase) when read back via datascriptQuery + page.properties.
+ *
+ * This helper tries the original key plus all normalized variants.
+ */
+function prop(props: Record<string, any>, key: string, fallback?: any): any {
+  if (key in props) return props[key];
+
+  // Try camelCase: "entity-type" -> "entityType"
+  const camel = key.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+  if (camel in props) return props[camel];
+
+  // Try snake_case: "entity-type" -> "entity_type"
+  const snake = key.replace(/-/g, "_");
+  if (snake in props) return props[snake];
+
+  // Try flatcase: "entity-type" -> "entitytype"
+  const flat = key.replace(/-/g, "");
+  if (flat in props) return props[flat];
+
+  return fallback;
+}
+
+// ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
 
@@ -157,15 +187,18 @@ export class CompendiumManager {
         [(= ?v true)]]`,
     );
 
+    console.log("[archivist] discover() raw results:", results.length);
+
     for (const [page] of results) {
       if (!page || !page.properties) continue;
       const props = page.properties;
+      console.log("[archivist] compendium page props:", JSON.stringify(props));
 
       const comp: Compendium = {
         name: page.originalName || page.name,
-        description: props["compendium-description"] || "",
-        readonly: props["compendium-readonly"] === true,
-        homebrew: props["compendium-homebrew"] === true,
+        description: prop(props, "compendium-description", "") as string,
+        readonly: prop(props, "compendium-readonly", false) === true,
+        homebrew: prop(props, "compendium-homebrew", false) === true,
       };
 
       this.addCompendium(comp);
@@ -190,16 +223,21 @@ export class CompendiumManager {
         [(= ?v true)]]`,
     );
 
+    console.log("[archivist] loadAllEntities() raw results:", results.length);
+    if (results.length > 0 && results[0]?.[0]?.properties) {
+      console.log("[archivist] sample entity props keys:", Object.keys(results[0][0].properties));
+    }
+
     for (const [page] of results) {
       if (!page || !page.properties) continue;
       const props = page.properties;
 
-      // Backward compat: "magic-item" was renamed to "item"
-      let entityType = props["entity-type"];
+      // Use prop() helper to handle Logseq's property key normalization
+      let entityType = prop(props, "entity-type") as string | undefined;
       if (entityType === "magic-item") entityType = "item";
-      const slug = props["slug"];
-      const name = props["name"];
-      const compendiumName = props["compendium"];
+      const slug = prop(props, "slug") as string | undefined;
+      const name = prop(props, "name") as string | undefined;
+      const compendiumName = prop(props, "compendium") as string | undefined;
 
       if (
         typeof entityType !== "string" ||
