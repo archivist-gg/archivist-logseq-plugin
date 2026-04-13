@@ -1,8 +1,6 @@
 import { parseInlineTag } from "../parsers/inline-tag-parser";
 import { renderInlineTag } from "../renderers/inline-tag-renderer";
 
-const PROCESSED_ATTR = "data-archivist-tag";
-
 /**
  * Scan a container for <code> elements whose text matches an inline tag
  * pattern and replace them with styled pill widgets.
@@ -11,7 +9,7 @@ const PROCESSED_ATTR = "data-archivist-tag";
  * Since there's no plugin API to intercept this rendering, we post-process
  * the DOM after Logseq has rendered blocks.
  */
-function processCodeElements(root: Element): void {
+function processCodeElements(root: Element | Document): void {
   const codeElements = root.querySelectorAll("code:not([data-archivist-tag])");
 
   for (const code of codeElements) {
@@ -22,10 +20,10 @@ function processCodeElements(root: Element): void {
     if (!parsed) continue;
 
     // Mark as processed to avoid re-processing
-    code.setAttribute(PROCESSED_ATTR, "true");
+    code.setAttribute("data-archivist-tag", "true");
 
     // Replace the <code> element with the rendered pill
-    const wrapper = document.createElement("span");
+    const wrapper = code.ownerDocument.createElement("span");
     wrapper.className = "archivist-inline-tag-widget";
     // Safe: renderInlineTag escapes all user content via escapeHtml
     wrapper.insertAdjacentHTML("afterbegin", renderInlineTag(parsed));
@@ -38,7 +36,7 @@ function processCodeElements(root: Element): void {
  * Set up a MutationObserver on the Logseq app container to automatically
  * process inline tags as blocks are rendered/re-rendered.
  *
- * Must be called from the host scope (not the plugin iframe).
+ * Must be called with the host document (Logseq's main frame).
  * Returns a cleanup function to disconnect the observer.
  */
 export function startInlineTagObserver(hostDocument: Document): () => void {
@@ -47,18 +45,19 @@ export function startInlineTagObserver(hostDocument: Document): () => void {
     hostDocument.getElementById("main-content-container") ||
     hostDocument.body;
 
-  // Initial scan
+  // Initial scan of all existing content
   processCodeElements(appContainer);
 
-  // Observe for new content
-  const observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node instanceof Element) {
-          processCodeElements(node);
-        }
-      }
-    }
+  // Debounced re-scan: when Logseq re-renders a block after editing,
+  // it replaces the entire block DOM. We debounce to batch mutations.
+  let scanTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const observer = new MutationObserver(() => {
+    if (scanTimer) return;
+    scanTimer = setTimeout(() => {
+      scanTimer = null;
+      processCodeElements(appContainer);
+    }, 100);
   });
 
   observer.observe(appContainer, {
@@ -66,5 +65,8 @@ export function startInlineTagObserver(hostDocument: Document): () => void {
     subtree: true,
   });
 
-  return () => observer.disconnect();
+  return () => {
+    if (scanTimer) clearTimeout(scanTimer);
+    observer.disconnect();
+  };
 }

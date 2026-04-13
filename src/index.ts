@@ -1,5 +1,4 @@
 import "@logseq/libs";
-import * as yaml from "js-yaml";
 import { parseMonster } from "./parsers/monster-parser";
 import { parseSpell } from "./parsers/spell-parser";
 import { parseItem } from "./parsers/item-parser";
@@ -26,8 +25,6 @@ import { showCompendiumPicker } from "./edit/compendium-picker";
 import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edit-render";
 import { renderSpellEditMode, wireSpellEditEvents } from "./edit/spell-edit-render";
 import { renderItemEditMode, wireItemEditEvents } from "./edit/item-edit-render";
-import { setCompendiumRefRegistry, setCompendiumRefManager } from "./extensions/compendium-ref-extension";
-import { setCompendiumSuggestRegistry } from "./extensions/compendium-suggest";
 import { startInlineTagObserver } from "./extensions/inline-tag-observer";
 
 type ParseResult<T> =
@@ -377,108 +374,28 @@ entries:
   await manager.discover();
   await manager.loadAllEntities();
 
+  console.log("[archivist] Loaded:", registry.count(), "entities from", manager.getAll().map(c => c.name).join(", ") || "no compendiums");
+
   managerRef = manager;
   registryRef = registry;
 
   initEntitySearch(registry);
 
-  // Debug: log registry state after loading
-  console.log("[archivist] Registry loaded:", registry.count(), "entities");
-  const slugs = registry.getAllSlugs();
-  if (slugs.size > 0) {
-    console.log("[archivist] Sample slugs:", [...slugs].slice(0, 5));
-    console.log("[archivist] Has 'goblin':", slugs.has("goblin"));
-  }
-
-  // --- Phase 4: CM6 Editor Extensions ---
-  setCompendiumRefRegistry(registry);
-  setCompendiumRefManager(manager);
-  setCompendiumSuggestRegistry(registry);
-
-  // --- Phase 4: Macro-based compendium ref rendering (read mode) ---
-  const MACRO_ENTITY_TYPES = new Set(["monster", "spell", "item"]);
-
-  logseq.App.onMacroRendererSlotted(({ slot, payload }) => {
-    console.log("[archivist] Macro renderer called:", payload.arguments);
-    const [type, ...args] = payload.arguments;
-    if (!type) return;
-
-    const typeClean = type.startsWith(":") ? type.slice(1) : type;
-    if (!MACRO_ENTITY_TYPES.has(typeClean)) return;
-    console.log("[archivist] Matched type:", typeClean, "slug:", args[0], "registry size:", registry.count());
-
-    const slug = args[0]?.trim();
-    if (!slug) return;
-
-    const entity = registry.getBySlug(slug);
-    if (!entity) {
-      logseq.provideUI({
-        key: `archivist-ref-${slot}`,
-        slot,
-        template: `<div class="archivist-compendium-ref-error">
-          <div class="archivist-not-found-text">
-            <div class="archivist-not-found-label">Entity not found</div>
-            <div class="archivist-not-found-ref">${escapeHtml(typeClean)}:${escapeHtml(slug)}</div>
-          </div>
-        </div>`,
-        reset: true,
-      });
-      return;
-    }
-
-    // Type mismatch check
-    if (entity.entityType !== typeClean) {
-      logseq.provideUI({
-        key: `archivist-ref-${slot}`,
-        slot,
-        template: `<div class="archivist-compendium-ref-error">
-          <div class="archivist-not-found-text">
-            <div class="archivist-not-found-label">Type mismatch</div>
-            <div class="archivist-not-found-ref">Expected ${escapeHtml(typeClean)}, found ${escapeHtml(entity.entityType)}</div>
-          </div>
-        </div>`,
-        reset: true,
-      });
-      return;
-    }
-
-    // Render entity stat block
-    const yamlStr = yaml.dump(entity.data, { lineWidth: -1, noRefs: true });
-    let blockHtml = "";
-
-    if (entity.entityType === "monster") {
-      const result = parseMonster(yamlStr);
-      if (result.success) blockHtml = renderMonsterBlock(result.data, 1);
-    } else if (entity.entityType === "spell") {
-      const result = parseSpell(yamlStr);
-      if (result.success) blockHtml = renderSpellBlock(result.data);
-    } else if (entity.entityType === "item") {
-      const result = parseItem(yamlStr);
-      if (result.success) blockHtml = renderItemBlock(result.data);
-    }
-
-    if (!blockHtml) return;
-
-    logseq.provideUI({
-      key: `archivist-ref-${slot}`,
-      slot,
-      template: `<div class="archivist-block archivist-compendium-ref">${blockHtml}
-        <div class="archivist-compendium-badge">${escapeHtml(entity.compendium)}</div>
-      </div>`,
-      reset: true,
-      style: { width: "100%" },
-    });
-  });
-
   // --- Phase 4: Inline tag DOM observer ---
   // Logseq's block editor is a textarea, not CM6. We post-process rendered
   // blocks to replace <code>dice:2d6</code> elements with styled pills.
-  // The observer runs in the host scope via the enhancer callback.
-  logseq.Experiments.registerExtensionsEnhancer("codemirror", async (_cm: any) => {
-    console.log("[archivist] Setting up inline tag DOM observer");
-    startInlineTagObserver(document);
-    return [];
-  });
+  // Access the host document (Logseq's main frame) from the plugin iframe.
+  try {
+    const hostDoc = parent?.document ?? top?.document;
+    if (hostDoc) {
+      console.log("[archivist] Setting up inline tag DOM observer on host document");
+      startInlineTagObserver(hostDoc);
+    } else {
+      console.warn("[archivist] Could not access host document for inline tag observer");
+    }
+  } catch (e) {
+    console.warn("[archivist] Inline tag observer setup failed (cross-origin?):", e);
+  }
 
   logseq.App.registerCommandPalette(
     { key: "archivist-import-srd", label: "Archivist: Import SRD Compendium" },
@@ -512,7 +429,7 @@ entries:
     async () => { await showSearch(); },
   );
 
-  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4 CM6 extensions)");
+  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4 inline tags)");
 }
 
 logseq.ready(main).catch(console.error);

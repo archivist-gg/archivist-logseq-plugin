@@ -56,6 +56,9 @@ export function createInlineTagExtension(cm: any): any {
       const parsed = parseInlineTag(this.tagText);
       const wrapper = document.createElement("span");
       wrapper.className = "archivist-inline-tag-widget";
+      // Safe: renderInlineTag escapes all user content via escapeHtml.
+      // Defensive: parsed is always non-null here (findInlineTagRanges pre-filters),
+      // but we guard anyway to prevent blank widgets if the invariant is broken.
       if (parsed) {
         wrapper.innerHTML = renderInlineTag(parsed);
       } else {
