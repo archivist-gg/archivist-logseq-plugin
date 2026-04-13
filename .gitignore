@@ -3,3 +3,7 @@ dist/
 *.js.map
 .DS_Store
 .gitnexus
+.superpowers/
+docs/superpowers/
+.superpowers/
+docs/superpowers/
