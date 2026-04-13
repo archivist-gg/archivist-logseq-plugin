@@ -26,6 +26,8 @@ import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edi
 import { renderSpellEditMode, wireSpellEditEvents } from "./edit/spell-edit-render";
 import { renderItemEditMode, wireItemEditEvents } from "./edit/item-edit-render";
 import { startInlineTagObserver } from "./extensions/inline-tag-observer";
+import { initDiceRenderer } from "./dice/renderer/dice-renderer";
+import { rollDice } from "./dice/roll";
 
 type ParseResult<T> =
   | { success: true; data: T }
@@ -127,6 +129,17 @@ function createStatefulBlockRenderer(
         });
         el.insertAdjacentHTML("beforeend", sideHtml);
         if (postRender) postRender(el);
+        // Wire dice click handlers on rollable pills
+        if (logseq.settings?.diceEnabled !== false) {
+          el.querySelectorAll(".archivist-stat-tag[data-dice-notation]").forEach((tagEl: Element) => {
+            (tagEl as HTMLElement).style.cursor = "pointer";
+            tagEl.addEventListener("click", (e: Event) => {
+              e.stopPropagation();
+              const notation = (tagEl as HTMLElement).dataset.diceNotation;
+              if (notation) rollDice(notation);
+            });
+          });
+        }
         wireSideButtonEvents(el, buildCallbacks(data), { signal });
       }
 
@@ -299,6 +312,20 @@ async function main() {
       title: "Default block mode",
       description: "Whether stat blocks open in rendered view or raw YAML source",
     },
+    {
+      key: "diceEnabled",
+      type: "boolean",
+      default: true,
+      title: "Enable Dice Rolling",
+      description: "Click rollable tag pills (dice, damage, attack, modifier) to trigger 3D dice animation.",
+    },
+    {
+      key: "diceRenderTime",
+      type: "number",
+      default: 3000,
+      title: "Dice Animation Duration (ms)",
+      description: "How long the 3D dice overlay stays visible after dice stop rolling. Set to 0 to require a click to dismiss.",
+    },
   ]);
 
   // Register fenced code block renderers
@@ -397,6 +424,18 @@ entries:
     console.warn("[archivist] Inline tag observer setup failed (cross-origin?):", e);
   }
 
+  // --- Phase 5: Dice Rolling ---
+  try {
+    const diceHostDoc = parent?.document ?? top?.document;
+    if (diceHostDoc) {
+      const renderTime = (logseq.settings?.diceRenderTime as number) ?? 3000;
+      initDiceRenderer(diceHostDoc, renderTime);
+      console.log("[archivist] Dice renderer initialized");
+    }
+  } catch (e) {
+    console.warn("[archivist] Dice renderer setup failed:", e);
+  }
+
   logseq.App.registerCommandPalette(
     { key: "archivist-import-srd", label: "Archivist: Import SRD Compendium" },
     async () => {
@@ -429,7 +468,7 @@ entries:
     async () => { await showSearch(); },
   );
 
-  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4 inline tags)");
+  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4 + 5 dice rolling)");
 }
 
 logseq.ready(main).catch(console.error);

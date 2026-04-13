@@ -1,5 +1,5 @@
 import type { InlineTag, InlineTagType } from "../parsers/inline-tag-parser";
-import { escapeHtml, lucideIcon } from "./renderer-utils";
+import { escapeHtml, lucideIcon, isRollable, extractDiceNotation } from "./renderer-utils";
 
 interface InlineTagConfig {
   iconName: string;
@@ -20,8 +20,11 @@ export function renderInlineTag(tag: InlineTag): string {
   const config = INLINE_TAG_CONFIGS[tag.type];
   const displayText = config.format(tag.content);
 
+  const notation = extractDiceNotation(tag);
+  const dataAttrs = notation ? ` data-dice-notation="${escapeHtml(notation)}"` : "";
+
   return [
-    `<span class="archivist-stat-tag ${config.cssClass}" title="${escapeHtml(displayText)}">`,
+    `<span class="archivist-stat-tag ${config.cssClass}"${dataAttrs} title="${escapeHtml(displayText)}">`,
     `<span class="archivist-stat-tag-icon">${lucideIcon(config.iconName)}</span>`,
     `<span>${escapeHtml(displayText)}</span>`,
     `</span>`,

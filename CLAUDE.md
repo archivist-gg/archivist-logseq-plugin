@@ -40,7 +40,7 @@ The Obsidian plugin being ported: `~/w/archivist-obsidian`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **archivist-logseq** (588 symbols, 1447 relationships, 47 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **archivist-logseq** (1050 symbols, 3181 relationships, 87 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

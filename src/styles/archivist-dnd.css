@@ -1938,3 +1938,18 @@ body.theme-light .archivist-tag-atk:hover {
   opacity: 0.5;
 }
 
+/* ===========================================================================
+   Phase 5: Rollable Pill Interaction
+   =========================================================================== */
+
+.archivist-stat-tag[data-dice-notation],
+.archivist-inline-tag-widget .archivist-stat-tag[data-dice-notation] {
+  cursor: pointer;
+}
+
+.archivist-stat-tag[data-dice-notation]:hover,
+.archivist-inline-tag-widget .archivist-stat-tag[data-dice-notation]:hover {
+  filter: brightness(1.15);
+  transition: filter 0.15s ease;
+}
+

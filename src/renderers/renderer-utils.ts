@@ -205,6 +205,25 @@ export function lucideIcon(name: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Rollable Type Check & Dice Notation Extraction
+// ---------------------------------------------------------------------------
+
+const ROLLABLE_TYPES = new Set(["dice", "damage", "atk", "mod"]);
+
+export function isRollable(type: string): boolean {
+  return ROLLABLE_TYPES.has(type);
+}
+
+export function extractDiceNotation(tag: { type: string; content: string }): string | null {
+  switch (tag.type) {
+    case "dice": return tag.content;
+    case "damage": return tag.content.replace(/\s+\S+$/, "");
+    case "atk": case "mod": return `1d20${tag.content}`;
+    default: return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Monster Formula Context
 // ---------------------------------------------------------------------------
 
@@ -390,10 +409,14 @@ function renderStatBlockTag(
   const resolvedContent = resolveTagContent(tag.type, tag.content, monsterCtx);
   const displayText = config.format(resolvedContent);
   const iconSvg = lucideIcon(config.iconName);
-  const title = escapeHtml(displayText);
+
+  const notation = extractDiceNotation({ type: tag.type, content: resolvedContent });
+  const dataAttrs = notation
+    ? ` data-dice-notation="${escapeHtml(notation)}" title="${escapeHtml(displayText)} -- Click to roll"`
+    : ` title="${escapeHtml(displayText)}"`;
 
   return (
-    `<span class="archivist-stat-tag ${config.cssClass}" title="${title}">` +
+    `<span class="archivist-stat-tag ${config.cssClass}"${dataAttrs}>` +
     `<span class="archivist-stat-tag-icon">${iconSvg}</span>` +
     `<span>${escapeHtml(displayText)}</span>` +
     "</span>"

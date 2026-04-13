@@ -1,5 +1,7 @@
 import { parseInlineTag } from "../parsers/inline-tag-parser";
 import { renderInlineTag } from "../renderers/inline-tag-renderer";
+import { isRollable, extractDiceNotation } from "../renderers/renderer-utils";
+import { rollDice } from "../dice/roll";
 
 /**
  * Scan a container for <code> elements whose text matches an inline tag
@@ -27,6 +29,22 @@ function processCodeElements(root: Element | Document): void {
     wrapper.className = "archivist-inline-tag-widget";
     // Safe: renderInlineTag escapes all user content via escapeHtml
     wrapper.insertAdjacentHTML("afterbegin", renderInlineTag(parsed));
+
+    // Wire click-to-roll on rollable pills
+    if (isRollable(parsed.type)) {
+      const notation = extractDiceNotation(parsed);
+      if (notation) {
+        const pill = wrapper.querySelector(".archivist-stat-tag") as HTMLElement;
+        if (pill) {
+          pill.style.cursor = "pointer";
+          pill.addEventListener("click", (e: Event) => {
+            e.stopPropagation();
+            e.preventDefault();
+            rollDice(notation);
+          });
+        }
+      }
+    }
 
     code.replaceWith(wrapper);
   }
