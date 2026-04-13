@@ -7,6 +7,14 @@ import { renderMonsterBlock } from "../renderers/monster-renderer";
 import { renderSpellBlock } from "../renderers/spell-renderer";
 import { renderItemBlock } from "../renderers/item-renderer";
 import { escapeHtml, lucideIcon } from "../renderers/renderer-utils";
+import { renderSideButtons, wireSideButtonEvents } from "../edit/side-buttons";
+import type { SideButtonCallbacks } from "../edit/side-buttons";
+import { renderMonsterEditMode, wireMonsterEditEvents } from "../edit/monster-edit-render";
+import { renderSpellEditMode, wireSpellEditEvents } from "../edit/spell-edit-render";
+import { renderItemEditMode, wireItemEditEvents } from "../edit/item-edit-render";
+import { showCompendiumPicker } from "../edit/compendium-picker";
+import type { CompendiumContext } from "../edit/block-utils";
+import type { EditCallbacks } from "../index";
 import type { EntityRegistry, RegisteredEntity } from "../entities/entity-registry";
 import type { CompendiumManager } from "../entities/compendium-manager";
 
@@ -126,11 +134,12 @@ export function createCompendiumRefExtension(cm: any): { plugin: any; compendium
       super();
     }
 
-    toDOM(): HTMLElement {
+    toDOM(view: any): HTMLElement {
       const container = document.createElement("div");
       container.className = "archivist-compendium-ref archivist-block";
 
       if (!registryRef) {
+        // Safe: renderNotFound escapes all user content via escapeHtml
         container.innerHTML = renderNotFound(this.refText, this.entityType, this.slug);
         return container;
       }
@@ -138,19 +147,184 @@ export function createCompendiumRefExtension(cm: any): { plugin: any; compendium
       const entity = registryRef.getBySlug(this.slug);
 
       if (!entity) {
+        // Safe: renderNotFound escapes all user content via escapeHtml
         container.innerHTML = renderNotFound(this.refText, this.entityType, this.slug);
         return container;
       }
 
-      // Type mismatch check
       if (this.entityType && entity.entityType !== this.entityType) {
+        // Safe: renderNotFound escapes all user content via escapeHtml
         container.innerHTML = renderNotFound(this.refText, this.entityType, this.slug);
         return container;
       }
 
-      // Safe: renderEntityHtml + renderBadge escape all user content via escapeHtml
-      const blockHtml = renderEntityHtml(entity);
-      container.innerHTML = blockHtml + renderBadge(entity.compendium);
+      let currentColumns = 1;
+      const isMonster = entity.entityType === "monster";
+      const refText = this.refText;
+      const compCtx: CompendiumContext = {
+        slug: entity.slug,
+        compendium: entity.compendium,
+        entityType: entity.entityType as "monster" | "spell" | "item",
+        readonly: entity.readonly,
+      };
+
+      const doRenderView = () => {
+        container.textContent = "";
+        // Safe: renderEntityHtml, renderBadge, renderSideButtons all escape user content
+        const blockHtml = renderEntityHtml(entity, currentColumns);
+        const sideHtml = renderSideButtons({
+          state: "default",
+          showColumnToggle: isMonster,
+          isColumnActive: currentColumns > 1,
+          compendiumContext: compCtx,
+        });
+        container.insertAdjacentHTML("afterbegin", blockHtml + renderBadge(entity.compendium) + sideHtml);
+        wireSideButtonEvents(container, buildCbs());
+      };
+
+      const doRenderSource = () => {
+        container.textContent = "";
+        const yamlStr = yaml.dump(entity.data, { lineWidth: -1, noRefs: true });
+        const sideHtml = renderSideButtons({
+          state: "default",
+          showColumnToggle: isMonster,
+          isColumnActive: currentColumns > 1,
+          compendiumContext: compCtx,
+        });
+        // Safe: escapeHtml sanitizes yamlStr, renderSideButtons produces trusted markup
+        container.insertAdjacentHTML("afterbegin",
+          `<div class="archivist-source-view"><pre class="archivist-source-pre">${escapeHtml(yamlStr)}</pre>${sideHtml}</div>`);
+        wireSideButtonEvents(container, buildCbs());
+      };
+
+      const doRenderEdit = () => {
+        container.textContent = "";
+        const editCbs: EditCallbacks = {
+          onSave: async (yamlStr: string) => {
+            if (!managerRef) return;
+            try {
+              const data = yaml.load(yamlStr) as Record<string, unknown>;
+              if (data && typeof data === "object") {
+                await managerRef.updateEntity(entity.slug, data);
+              }
+            } catch { /* ignore parse errors */ }
+            doRenderView();
+          },
+          onSaveAsNew: async (yamlStr: string, entityName: string) => {
+            if (!managerRef) return;
+            const writable = managerRef.getWritable();
+            if (writable.length === 0) return;
+            try {
+              const data = yaml.load(yamlStr) as Record<string, unknown>;
+              if (!data || typeof data !== "object") return;
+              data.name = entityName;
+              if (writable.length === 1) {
+                await managerRef.saveEntity(writable[0].name, entity.entityType, data);
+              } else {
+                showCompendiumPicker(container, writable, async (comp) => {
+                  await managerRef!.saveEntity(comp.name, entity.entityType, data);
+                  doRenderView();
+                });
+                return;
+              }
+            } catch { /* ignore */ }
+            doRenderView();
+          },
+          onCancel: () => doRenderView(),
+        };
+
+        const yamlStr = yaml.dump(entity.data, { lineWidth: -1, noRefs: true });
+        const type = entity.entityType;
+
+        if (type === "monster") {
+          const result = parseMonster(yamlStr);
+          if (result.success) {
+            const editHtml = renderMonsterEditMode(result.data, compCtx);
+            const sideHtml = renderSideButtons({ state: "editing", showColumnToggle: false, isColumnActive: false, compendiumContext: compCtx });
+            // Safe: all HTML produced by our own renderers from parsed data
+            container.insertAdjacentHTML("afterbegin", editHtml + sideHtml);
+            wireMonsterEditEvents(container, result.data, compCtx, editCbs);
+            wireSideButtonEvents(container, buildCbs());
+          }
+        } else if (type === "spell") {
+          const result = parseSpell(yamlStr);
+          if (result.success) {
+            const editHtml = renderSpellEditMode(result.data, compCtx);
+            const sideHtml = renderSideButtons({ state: "editing", showColumnToggle: false, isColumnActive: false, compendiumContext: compCtx });
+            // Safe: all HTML produced by our own renderers from parsed data
+            container.insertAdjacentHTML("afterbegin", editHtml + sideHtml);
+            wireSpellEditEvents(container, result.data, compCtx, editCbs);
+            wireSideButtonEvents(container, buildCbs());
+          }
+        } else if (type === "item") {
+          const result = parseItem(yamlStr);
+          if (result.success) {
+            const editHtml = renderItemEditMode(result.data, compCtx);
+            const sideHtml = renderSideButtons({ state: "editing", showColumnToggle: false, isColumnActive: false, compendiumContext: compCtx });
+            // Safe: all HTML produced by our own renderers from parsed data
+            container.insertAdjacentHTML("afterbegin", editHtml + sideHtml);
+            wireItemEditEvents(container, result.data, compCtx, editCbs);
+            wireSideButtonEvents(container, buildCbs());
+          }
+        }
+      };
+
+      let currentMode: "view" | "source" | "edit" = "view";
+
+      const buildCbs = (): SideButtonCallbacks => ({
+        onSource: () => {
+          currentMode = currentMode === "source" ? "view" : "source";
+          if (currentMode === "source") doRenderSource();
+          else doRenderView();
+        },
+        onColumnToggle: () => {
+          currentColumns = currentColumns > 1 ? 1 : 2;
+          doRenderView();
+        },
+        onEdit: () => {
+          currentMode = "edit";
+          doRenderEdit();
+        },
+        onSave: () => {},
+        onSaveAsNew: () => {},
+        onCancel: () => {
+          currentMode = "view";
+          doRenderView();
+        },
+        onDeleteBlock: () => {
+          // Delete the {{ref}} text from the document
+          try {
+            const pos = view.posAtDOM(container);
+            if (pos !== undefined) {
+              view.dispatch({
+                changes: { from: pos, to: pos + refText.length, insert: "" },
+              });
+            }
+          } catch { /* widget may no longer be in doc */ }
+        },
+        onDeleteEntity: async () => {
+          if (!managerRef) return;
+          const count = await managerRef.countReferences(entity.slug);
+          let msg = `Delete "${entity.name}" from ${entity.compendium}?`;
+          if (count > 0) {
+            msg += `\n\n${count} reference${count === 1 ? "" : "s"} will break.`;
+          }
+          if (confirm(msg)) {
+            try {
+              const pos = view.posAtDOM(container);
+              if (pos !== undefined) {
+                view.dispatch({
+                  changes: { from: pos, to: pos + refText.length, insert: "" },
+                });
+              }
+            } catch { /* ignore */ }
+            await managerRef.deleteEntity(entity.slug);
+          }
+        },
+      });
+
+      // Initial render
+      doRenderView();
 
       // Prevent Logseq click-through
       container.addEventListener("mousedown", (e: MouseEvent) => e.stopPropagation());
