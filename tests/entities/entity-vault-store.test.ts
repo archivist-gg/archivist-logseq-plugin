@@ -65,7 +65,7 @@ describe("TYPE_FOLDER_MAP", () => {
     expect(TYPE_FOLDER_MAP["monster"]).toBe("Monsters");
   });
 
-  it("maps magic-item to Magic Items", () => {
-    expect(TYPE_FOLDER_MAP["magic-item"]).toBe("Magic Items");
+  it("maps item to Magic Items", () => {
+    expect(TYPE_FOLDER_MAP["item"]).toBe("Magic Items");
   });
 });

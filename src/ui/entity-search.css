@@ -134,7 +134,7 @@
 /* Type badge colors */
 .archivist-search-result-type.monster    { background: #922610; }
 .archivist-search-result-type.spell      { background: #1a4b8c; }
-.archivist-search-result-type.magic-item { background: #6b21a8; }
+.archivist-search-result-type.item       { background: #6b21a8; }
 .archivist-search-result-type.armor      { background: #6b7280; }
 .archivist-search-result-type.weapon     { background: #6b7280; }
 .archivist-search-result-type.feat       { background: #b45309; }

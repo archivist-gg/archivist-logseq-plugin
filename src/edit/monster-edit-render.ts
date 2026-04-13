@@ -671,7 +671,8 @@ export function wireMonsterEditEvents(
 
   // -- Wire add-section button --
   wireAddSectionButton(container, state, () => {
-    if (!activeTabKey && state.current.activeSections.length > 0) {
+    // Always focus the newly added tab (last in the list)
+    if (state.current.activeSections.length > 0) {
       activeTabKey = state.current.activeSections[state.current.activeSections.length - 1];
     }
     rebuildTabs(container, state, activeTabKey, (newKey) => {

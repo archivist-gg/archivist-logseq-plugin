@@ -530,7 +530,7 @@
   font-family:
     'Libre Baskerville', 'Lora', 'Calisto MT', 'Bookman Old Style', Bookman, 'Goudy Old Style', Garamond,
     'Hoefler Text', 'Bitstream Charter', Georgia, serif;
-  color: #7a200d;
+  color: #7a200d !important;
   font-size: 23px;
   line-height: 1.2em;
   margin: 0 0 0.1em -0.02em;
@@ -560,21 +560,21 @@
   font-size: 13px;
 }
 
-.archivist-spell-block .property-icon {
+.archivist-block .archivist-spell-block .property-icon {
   width: 14px;
   height: 14px;
-  color: #7a200d;
+  color: #7a200d !important;
   flex-shrink: 0;
 }
 
 .archivist-spell-block .property-label {
   font-weight: 600;
-  color: #191813;
+  color: #191813 !important;
   flex-shrink: 0;
 }
 
 .archivist-spell-block .property-value {
-  color: #191813;
+  color: #191813 !important;
 }
 
 /* Spell Description */
@@ -603,7 +603,7 @@
 .archivist-spell-block .higher-levels-header {
   font-weight: 700;
   font-style: italic;
-  color: #191813;
+  color: #7a200d !important;
   margin-bottom: 0.2em;
 }
 
@@ -642,13 +642,14 @@
 }
 
 .archivist-spell-block .spell-tag.concentration {
-  background: #e74c3c;
-  color: white;
+  background: #922610 !important;
+  color: white !important;
+  border: 1px solid #7a200d !important;
 }
 
 .archivist-spell-block .spell-tag.ritual {
-  background: #3498db;
-  color: white;
+  background: #3498db !important;
+  color: white !important;
 }
 
 /* Markdown Table Styles - D&D 5e PHB Style */
@@ -762,7 +763,7 @@
   font-family:
     'Libre Baskerville', 'Lora', 'Calisto MT', 'Bookman Old Style', Bookman, 'Goudy Old Style', Garamond,
     'Hoefler Text', 'Bitstream Charter', Georgia, serif;
-  color: #7a200d;
+  color: #7a200d !important;
   font-size: 23px;
   line-height: 1.2em;
   margin: 0 0 0.1em -0.02em;
@@ -792,21 +793,21 @@
   font-size: 13px;
 }
 
-.archivist-item-block .property-icon {
+.archivist-block .archivist-item-block .property-icon {
   width: 14px;
   height: 14px;
-  color: #7a200d;
+  color: #7a200d !important;
   flex-shrink: 0;
 }
 
 .archivist-item-block .property-label {
   font-weight: 600;
-  color: #191813;
+  color: #191813 !important;
   flex-shrink: 0;
 }
 
 .archivist-item-block .property-value {
-  color: #191813;
+  color: #191813 !important;
 }
 
 /* Item Description */
@@ -934,21 +935,21 @@
   font-size: 13px;
 }
 
-.archivist-property-icon {
+.archivist-block .archivist-property-icon {
   width: 14px;
   height: 14px;
-  color: #7a200d;
+  color: #7a200d !important;
   flex-shrink: 0;
 }
 
-.archivist-property-label {
+.archivist-block .archivist-property-label {
   font-weight: 600;
-  color: #191813;
+  color: #191813 !important;
   flex-shrink: 0;
 }
 
-.archivist-property-value {
-  color: #191813;
+.archivist-block .archivist-property-value {
+  color: #191813 !important;
 }
 
 /* 7. Feature Styles

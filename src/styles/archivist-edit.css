@@ -686,17 +686,20 @@
    10. Add Button (Full Width)
    ========================================================================== */
 
-.archivist-block .archivist-monster-block.editing button.archivist-add-btn {
+.archivist-block .archivist-monster-block.editing button.archivist-add-btn,
+.archivist-block .archivist-spell-block.editing button.archivist-add-btn,
+.archivist-block .archivist-item-block.editing button.archivist-add-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   margin-top: 8px;
   padding: 7px 12px;
-  background-color: rgba(253, 241, 220, 0.3) !important;
+  background-color: transparent !important;
   border: 1px dashed var(--d5e-border-tan) !important;
   border-radius: 2px;
   color: var(--d5e-text-accent) !important;
+  box-shadow: none !important;
   font-size: 13px;
   font-family: 'Noto Sans', sans-serif;
   cursor: pointer;
@@ -704,7 +707,9 @@
   text-align: center;
 }
 
-.archivist-block .archivist-monster-block.editing button.archivist-add-btn:hover {
+.archivist-block .archivist-monster-block.editing button.archivist-add-btn:hover,
+.archivist-block .archivist-spell-block.editing button.archivist-add-btn:hover,
+.archivist-block .archivist-item-block.editing button.archivist-add-btn:hover {
   background-color: rgba(217, 196, 132, 0.3) !important;
   border-color: var(--d5e-bar-fill) !important;
 }
@@ -1047,11 +1052,39 @@
 
 /* Checkbox for toggles (concentration, ritual, attunement, cursed) */
 .archivist-block .archivist-edit-checkbox {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--d5e-bar-fill);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none !important;
+  width: 18px !important;
+  height: 18px !important;
+  border: 1.5px solid var(--d5e-border-tan-dark, #c4a95e) !important;
+  border-radius: 3px !important;
+  background: var(--d5e-parchment-light, #fef8ee) !important;
   cursor: pointer;
   flex-shrink: 0;
+  position: relative;
+  vertical-align: middle;
+}
+.archivist-block .archivist-edit-checkbox:checked {
+  background: var(--d5e-bar-fill, #922610) !important;
+  border-color: var(--d5e-bar-fill, #922610) !important;
+}
+.archivist-block .archivist-edit-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--d5e-parchment, #fdf1dc);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Spell/item property icons in edit mode — crimson */
+.archivist-block .archivist-spell-block.editing .property-icon,
+.archivist-block .archivist-item-block.editing .property-icon {
+  color: #7a200d !important;
 }
 
 /* Toggle label: label + checkbox in a flex row */
@@ -1061,7 +1094,7 @@
   gap: 6px;
   font-size: 14px;
   cursor: pointer;
-  color: var(--d5e-text-dark);
+  color: var(--d5e-text-dark) !important;
 }
 
 /* Tags row: flex row with gap for concentration/ritual toggles */
@@ -1107,7 +1140,7 @@
 
 .archivist-block .archivist-side-btns {
   position: absolute;
-  top: 36px;
+  top: 4px;
   right: 4px;
   display: flex;
   flex-direction: column;

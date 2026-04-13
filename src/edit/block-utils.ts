@@ -3,7 +3,7 @@
 export interface CompendiumContext {
   slug: string;
   compendium: string;
-  entityType: "monster" | "spell" | "magic-item";
+  entityType: "monster" | "spell" | "item";
   readonly: boolean;
 }
 
@@ -45,8 +45,10 @@ export async function getCompendiumContext(
 
   const slug = String(page.properties["slug"] ?? "");
   const compendiumName = String(page.properties["compendium"] ?? "");
-  const VALID_ENTITY_TYPES = new Set<CompendiumContext["entityType"]>(["monster", "spell", "magic-item"]);
-  const rawType = String(page.properties["entity-type"] ?? "");
+  const VALID_ENTITY_TYPES = new Set<CompendiumContext["entityType"]>(["monster", "spell", "item"]);
+  let rawType = String(page.properties["entity-type"] ?? "");
+  // Backward compat: "magic-item" was renamed to "item"
+  if (rawType === "magic-item") rawType = "item";
   if (!VALID_ENTITY_TYPES.has(rawType as CompendiumContext["entityType"])) return null;
   const entityType = rawType as CompendiumContext["entityType"];
 

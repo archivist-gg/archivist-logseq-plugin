@@ -224,8 +224,7 @@ function createStatefulBlockRenderer(
       if (!managerRef || !registryRef) return;
       const parsed = parser(yaml);
       if (!parsed.success) return;
-      const mappedType = entityType === "item" ? "magic-item" : entityType;
-      await managerRef.saveEntity(comp.name, mappedType, {
+      await managerRef.saveEntity(comp.name, entityType, {
         ...parsed.data,
         name: entityName,
       });

@@ -65,23 +65,14 @@ export function sanitizePageName(name: string): string {
 }
 
 /**
- * Return the fenced code block language for an entity type.
- * "magic-item" => "item", everything else passes through.
- */
-export function codeBlockLang(entityType: string): string {
-  return entityType === "magic-item" ? "item" : entityType;
-}
-
-/**
  * Build a fenced code block string containing YAML-serialized data.
  */
 export function buildFencedCodeBlock(
   entityType: string,
   data: Record<string, unknown>,
 ): string {
-  const lang = codeBlockLang(entityType);
   const body = yaml.dump(data, { lineWidth: -1, noRefs: true, sortKeys: false });
-  return `\`\`\`${lang}\n${body}\`\`\``;
+  return `\`\`\`${entityType}\n${body}\`\`\``;
 }
 
 /**
@@ -203,7 +194,9 @@ export class CompendiumManager {
       if (!page || !page.properties) continue;
       const props = page.properties;
 
-      const entityType = props["entity-type"];
+      // Backward compat: "magic-item" was renamed to "item"
+      let entityType = props["entity-type"];
+      if (entityType === "magic-item") entityType = "item";
       const slug = props["slug"];
       const name = props["name"];
       const compendiumName = props["compendium"];

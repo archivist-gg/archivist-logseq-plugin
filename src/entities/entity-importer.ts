@@ -65,7 +65,7 @@ export async function importSrdToLogseq(
       entityData = normalizeSrdMonster(entityData);
     } else if (entity.entityType === "spell") {
       entityData = normalizeSrdSpell(entityData);
-    } else if (entity.entityType === "magic-item") {
+    } else if (entity.entityType === "item") {
       entityData = normalizeSrdItem(entityData);
     }
 
