@@ -1,6 +1,6 @@
 {
   "name": "logseq-plugin-archivist",
-  "version": "0.1.0",
+  "version": "0.5.2",
   "description": "D&D 5e stat blocks, spells, and magic items for Logseq",
   "main": "dist/index.html",
   "logseq": {
