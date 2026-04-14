@@ -1,19 +1,25 @@
 {
-  "name": "archivist-sidecar",
+  "name": "archivist-bridge",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "Archivist TTRPG Blocks sidecar server for Logseq plugin",
+  "description": "Local AI server that connects Archivist TTRPG plugins to Claudian, a D&D 5e chat assistant powered by Claude",
   "main": "dist/cli.js",
   "bin": {
-    "archivist": "dist/cli.js"
+    "archivist-bridge": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
@@ -28,5 +34,17 @@
     "@types/ws": "^8.5.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
-  }
+  },
+  "keywords": [
+    "dnd",
+    "5e",
+    "ttrpg",
+    "claude",
+    "ai",
+    "logseq",
+    "obsidian",
+    "archivist",
+    "claudian"
+  ],
+  "license": "AGPL-3.0"
 }
