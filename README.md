@@ -88,7 +88,62 @@ After installing, import the bundled SRD compendium:
 
 1. Open the command palette (`Cmd/Ctrl+Shift+P`)
 2. Run **"Archivist: Import SRD Compendium"**
-3. 300+ monsters, spells, and items will be created as Logseq pages
+3. Wait for the progress messages — 960+ entities will be created as Logseq pages under the `SRD/` namespace
+4. Once complete, you'll see a confirmation with the total entity count
+
+The SRD data is loaded on demand when you run the import command, so it does not affect plugin startup time.
+
+## Testing the Plugin
+
+After installation, try these features to verify everything works:
+
+### Stat Blocks
+
+1. Create a new block and type `/Monster Block` (or `/Spell Block`, `/Item Block`)
+2. A YAML template will be inserted — the stat block renders automatically
+3. Click the **edit** button (pencil icon, right side) to enter edit mode
+4. Click the **columns** button to toggle two-column layout (monsters only)
+5. Click the **source** button (`</>`) to view raw YAML
+
+### Dice Rolling
+
+1. In a rendered stat block, look for highlighted pills (attack bonuses, damage dice, etc.)
+2. Click any pill to trigger a 3D dice animation
+3. The result appears as a toast notification in the top-right corner
+4. Adjust animation duration in Settings → Plugin Settings → Archivist → Dice Animation Duration
+
+### Inline Dice Tags
+
+In any Logseq block, use inline code with dice notation:
+
+- `` `dice:2d6+3` `` — rolls 2d6+3
+- `` `atk:STR` `` — shows an attack modifier
+- `` `damage:1d8+DEX` `` — shows damage dice
+
+These render as styled pills that are clickable when dice rolling is enabled.
+
+### Entity Search
+
+1. Open the command palette (`Cmd/Ctrl+Shift+P`)
+2. Run **"Archivist: Search Entity"**
+3. Type a name to search across all compendiums (SRD must be imported first)
+
+### Compendium Browsing
+
+After importing the SRD, browse entities in the Logseq sidebar:
+
+- Navigate to the `SRD` page to see the compendium root
+- Entities are organized as `SRD/Monsters/Goblin`, `SRD/Spells/Fireball`, etc.
+- Each entity page contains a fenced code block that renders as a stat block
+
+## Settings
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Two-column monster layout | Render monsters in two-column PHB style | Off |
+| Default block mode | Open blocks in rendered view or raw YAML | View |
+| Enable Dice Rolling | Click rollable pills to trigger 3D dice | On |
+| Dice Animation Duration | How long the dice overlay stays visible (ms) | 3000 |
 
 ## License
 
