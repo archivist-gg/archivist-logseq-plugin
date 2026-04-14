@@ -1,0 +1,372 @@
+/* ─── Archivist Inquiry Panel — Base CSS ───────────────────
+ * Sidebar panel for the AI chat interface (Claudian/Inquiry).
+ * All selectors prefixed with #archivist-inquiry-panel or .archivist-
+ * to avoid collisions with Logseq styles.
+ *
+ * Logseq CSS variable mapping:
+ *   --background-primary   -> var(--ls-primary-background-color)
+ *   --background-secondary -> var(--ls-secondary-background-color)
+ *   --text-normal          -> var(--ls-primary-text-color)
+ *   --text-muted           -> var(--ls-secondary-text-color)
+ *   --interactive-accent   -> var(--ls-active-primary-color)
+ *   --background-modifier-border -> var(--ls-border-color)
+ * ──────────────────────────────────────────────────────── */
+
+/* ── Panel container ──────────────────────────────────── */
+
+#archivist-inquiry-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 420px;
+  height: 100vh;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  background: var(--ls-primary-background-color, #fff);
+  border-left: 1px solid var(--ls-border-color, #ddd);
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.08);
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+
+#archivist-inquiry-panel.archivist-panel-open {
+  transform: translateX(0);
+}
+
+/* ── Header ───────────────────────────────────────────── */
+
+.archivist-inquiry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ls-border-color, #ddd);
+  background: var(--ls-secondary-background-color, #f5f5f5);
+  flex-shrink: 0;
+}
+
+.archivist-inquiry-header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ls-primary-text-color, #333);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.archivist-inquiry-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.archivist-inquiry-header-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--ls-secondary-text-color, #888);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.archivist-inquiry-header-btn:hover {
+  background: var(--ls-border-color, #eee);
+  color: var(--ls-primary-text-color, #333);
+}
+
+.archivist-inquiry-header-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Messages area ────────────────────────────────────── */
+
+.archivist-inquiry-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.archivist-inquiry-message {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.archivist-inquiry-message-user {
+  align-items: flex-end;
+}
+
+.archivist-inquiry-message-assistant {
+  align-items: flex-start;
+}
+
+.archivist-inquiry-message-bubble {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 90%;
+  word-wrap: break-word;
+}
+
+.archivist-inquiry-message-user .archivist-inquiry-message-bubble {
+  background: var(--ls-active-primary-color, #4c7bd9);
+  color: #fff;
+  border-bottom-right-radius: 2px;
+}
+
+.archivist-inquiry-message-assistant .archivist-inquiry-message-bubble {
+  background: var(--ls-secondary-background-color, #f5f5f5);
+  color: var(--ls-primary-text-color, #333);
+  border-bottom-left-radius: 2px;
+}
+
+.archivist-inquiry-message-meta {
+  font-size: 11px;
+  color: var(--ls-secondary-text-color, #888);
+  padding: 0 4px;
+}
+
+/* ── Input area ───────────────────────────────────────── */
+
+.archivist-inquiry-input-area {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--ls-border-color, #ddd);
+  background: var(--ls-primary-background-color, #fff);
+  flex-shrink: 0;
+}
+
+.archivist-inquiry-textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--ls-border-color, #ddd);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  font-family: inherit;
+  background: var(--ls-primary-background-color, #fff);
+  color: var(--ls-primary-text-color, #333);
+  min-height: 36px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.archivist-inquiry-textarea:focus {
+  outline: none;
+  border-color: var(--ls-active-primary-color, #4c7bd9);
+  box-shadow: 0 0 0 2px rgba(76, 123, 217, 0.15);
+}
+
+.archivist-inquiry-textarea::placeholder {
+  color: var(--ls-secondary-text-color, #aaa);
+}
+
+.archivist-inquiry-send-btn {
+  background: var(--ls-active-primary-color, #4c7bd9);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.archivist-inquiry-send-btn:hover {
+  opacity: 0.9;
+}
+
+.archivist-inquiry-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.archivist-inquiry-send-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Connection state indicators ──────────────────────── */
+
+.archivist-connection-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.archivist-connection-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.archivist-connection-disconnected .archivist-connection-dot {
+  background: #e53e3e;
+}
+
+.archivist-connection-disconnected {
+  color: #e53e3e;
+  background: rgba(229, 62, 62, 0.08);
+}
+
+.archivist-connection-connecting .archivist-connection-dot {
+  background: #d69e2e;
+  animation: archivist-pulse 1.2s ease-in-out infinite;
+}
+
+.archivist-connection-connecting {
+  color: #d69e2e;
+  background: rgba(214, 158, 46, 0.08);
+}
+
+.archivist-connection-connected .archivist-connection-dot {
+  background: #38a169;
+}
+
+.archivist-connection-connected {
+  color: #38a169;
+  background: rgba(56, 161, 105, 0.08);
+}
+
+.archivist-connection-reconnecting .archivist-connection-dot {
+  background: #d69e2e;
+  animation: archivist-pulse 0.8s ease-in-out infinite;
+}
+
+.archivist-connection-reconnecting {
+  color: #d69e2e;
+  background: rgba(214, 158, 46, 0.08);
+}
+
+@keyframes archivist-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Toast notification overlay ───────────────────────── */
+
+.archivist-toast-container {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.archivist-toast {
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: auto;
+  animation: archivist-toast-in 0.2s ease-out;
+  max-width: 360px;
+}
+
+.archivist-toast-info {
+  background: var(--ls-primary-background-color, #fff);
+  color: var(--ls-primary-text-color, #333);
+  border-left: 3px solid var(--ls-active-primary-color, #4c7bd9);
+}
+
+.archivist-toast-warning {
+  background: #fffbeb;
+  color: #92400e;
+  border-left: 3px solid #d69e2e;
+}
+
+.archivist-toast-error {
+  background: #fef2f2;
+  color: #991b1b;
+  border-left: 3px solid #e53e3e;
+}
+
+.archivist-toast-exit {
+  animation: archivist-toast-out 0.2s ease-in forwards;
+}
+
+@keyframes archivist-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes archivist-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* ── Loader spinner ───────────────────────────────────── */
+
+.archivist-inquiry-loader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: var(--ls-secondary-text-color, #888);
+  font-size: 12px;
+}
+
+.archivist-inquiry-loader svg {
+  width: 16px;
+  height: 16px;
+  animation: archivist-spin 1s linear infinite;
+}
+
+@keyframes archivist-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Scrollbar styling ────────────────────────────────── */
+
+.archivist-inquiry-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.archivist-inquiry-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.archivist-inquiry-messages::-webkit-scrollbar-thumb {
+  background: var(--ls-border-color, #ddd);
+  border-radius: 3px;
+}
+
+.archivist-inquiry-messages::-webkit-scrollbar-thumb:hover {
+  background: var(--ls-secondary-text-color, #aaa);
+}
