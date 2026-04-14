@@ -18,11 +18,13 @@
     "@logseq/libs": "^0.0.17",
     "cannon-es": "^0.20.0",
     "js-yaml": "^4.1.0",
+    "markdown-it": "^14.1.1",
     "moo": "^0.5.3",
     "three": "^0.183.2"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
+    "@types/markdown-it": "^14.1.2",
     "@types/moo": "^0.5.10",
     "@types/three": "^0.183.1",
     "jsdom": "^29.0.2",
