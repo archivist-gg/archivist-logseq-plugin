@@ -691,4 +691,18 @@ export class ChatView {
   private generateId(): string {
     return `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   }
+
+  // ============================================
+  // Public API (called from InquiryPanel)
+  // ============================================
+
+  /** Create a new chat session tab. */
+  newSession(): void {
+    this.createTab();
+  }
+
+  /** Request session history from the sidecar. */
+  showSessionHistory(): void {
+    this.client.sendSessionList();
+  }
 }

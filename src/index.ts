@@ -434,7 +434,7 @@ entries:
   try {
     const hostDoc = parent?.document ?? top?.document ?? document;
     const sidecarClient = new SidecarClient();
-    inquiryPanel = new InquiryPanel(hostDoc, sidecarClient);
+    inquiryPanel = new InquiryPanel(hostDoc, sidecarClient, registry);
     inquiryPanel.init();
     console.log("[archivist] Inquiry panel initialized");
   } catch (e) {
@@ -448,7 +448,7 @@ entries:
 
   logseq.App.registerCommandPalette(
     { key: "new-inquiry-session", label: "Claudian: New Session" },
-    () => { /* Will be wired in Task 16 */ },
+    () => { inquiryPanel?.newSession(); },
   );
 
   logseq.App.registerCommandPalette(

@@ -1,12 +1,13 @@
 // ──────────────────────────────────────────────────────────
 // InquiryPanel — DOM Injection Shell
 // Creates and manages the sidebar chat panel in Logseq's host document.
-// The panel is a shell; ChatView (Task 13) will wire in the actual
-// message rendering and input handling.
+// On sidecar connect, replaces placeholder content with ChatView.
 // ──────────────────────────────────────────────────────────
 
 import { SidecarClient, ConnectionState } from './SidecarClient';
+import { ChatView } from './ui/ChatView';
 import { setIcon, createIconEl } from './shared/icons';
+import type { EntityRegistry } from '../entities/entity-registry';
 
 // Import CSS as a raw string — Vite handles this via the ?inline suffix.
 // We inject it into the host document <head> since the panel lives outside
@@ -17,15 +18,25 @@ export class InquiryPanel {
   private hostDoc: Document;
   private panelEl: HTMLElement;
   private client: SidecarClient;
+  private entityRegistry: EntityRegistry | null;
   private isOpen = false;
   private styleEl: HTMLStyleElement | null = null;
   private connectionIndicator: HTMLElement | null = null;
-  private messagesContainer: HTMLElement | null = null;
   private toolbarBtn: HTMLElement | null = null;
 
-  constructor(hostDoc: Document, client: SidecarClient) {
+  // ChatView content area — everything below the header/connection indicator
+  private contentEl: HTMLElement | null = null;
+  private chatView: ChatView | null = null;
+  private chatViewReady = false;
+
+  // Header action buttons (wired to ChatView when available)
+  private historyBtn: HTMLElement | null = null;
+  private newSessionBtn: HTMLElement | null = null;
+
+  constructor(hostDoc: Document, client: SidecarClient, entityRegistry?: EntityRegistry) {
     this.hostDoc = hostDoc;
     this.client = client;
+    this.entityRegistry = entityRegistry ?? null;
     this.panelEl = hostDoc.createElement('div');
   }
 
@@ -41,8 +52,7 @@ export class InquiryPanel {
     // 3. Build panel structure:
     //    - Header (bot icon + "Claudian" title + action buttons)
     //    - Connection indicator
-    //    - Messages area (placeholder, replaced by ChatView in Task 16)
-    //    - Input area (placeholder, replaced by ChatView in Task 16)
+    //    - Content area (placeholder initially, ChatView when connected)
 
     const header = this.hostDoc.createElement('div');
     header.className = 'archivist-inquiry-header';
@@ -58,13 +68,13 @@ export class InquiryPanel {
     const actions = this.hostDoc.createElement('div');
     actions.className = 'archivist-inquiry-header-actions';
 
-    const historyBtn = this.createActionButton('history', 'Session history');
-    const newBtn = this.createActionButton('plus', 'New session');
+    this.historyBtn = this.createActionButton('history', 'Session history');
+    this.newSessionBtn = this.createActionButton('plus', 'New session');
     const closeBtn = this.createActionButton('x', 'Close');
     closeBtn.addEventListener('click', () => this.toggle());
 
-    actions.appendChild(historyBtn);
-    actions.appendChild(newBtn);
+    actions.appendChild(this.historyBtn);
+    actions.appendChild(this.newSessionBtn);
     actions.appendChild(closeBtn);
 
     header.appendChild(titleArea);
@@ -75,32 +85,15 @@ export class InquiryPanel {
     this.connectionIndicator.className = 'archivist-connection-indicator';
     this.updateConnectionState('disconnected');
 
-    // Messages placeholder
-    this.messagesContainer = this.hostDoc.createElement('div');
-    this.messagesContainer.className = 'archivist-inquiry-messages';
-    const placeholder = this.hostDoc.createElement('div');
-    placeholder.className = 'archivist-inquiry-placeholder';
-    placeholder.textContent = 'Start the sidecar to begin chatting';
-    this.messagesContainer.appendChild(placeholder);
-
-    // Input placeholder
-    const inputArea = this.hostDoc.createElement('div');
-    inputArea.className = 'archivist-inquiry-input-area';
-    const inputField = this.hostDoc.createElement('textarea');
-    inputField.className = 'archivist-inquiry-textarea';
-    inputField.placeholder = 'Ask Claudian...';
-    inputField.rows = 1;
-    const sendBtn = this.hostDoc.createElement('button');
-    sendBtn.className = 'archivist-inquiry-send-btn';
-    setIcon(sendBtn, 'send');
-    inputArea.appendChild(inputField);
-    inputArea.appendChild(sendBtn);
+    // Content area — will hold placeholder or ChatView
+    this.contentEl = this.hostDoc.createElement('div');
+    this.contentEl.className = 'archivist-inquiry-content';
+    this.showPlaceholder();
 
     // Assemble panel
     this.panelEl.appendChild(header);
     this.panelEl.appendChild(this.connectionIndicator);
-    this.panelEl.appendChild(this.messagesContainer);
-    this.panelEl.appendChild(inputArea);
+    this.panelEl.appendChild(this.contentEl);
 
     // 4. Append to host document
     const appContainer = this.hostDoc.getElementById('app-container')
@@ -108,12 +101,15 @@ export class InquiryPanel {
     appContainer.appendChild(this.panelEl);
 
     // 5. Subscribe to sidecar connection state changes
-    this.client.onStateChange((state) => this.updateConnectionState(state));
+    this.client.onStateChange((state) => this.handleConnectionStateChange(state));
 
-    // 6. Inject toolbar toggle button into Logseq header
+    // 6. Wire sidecar onReady — fires after WebSocket handshake + server greeting
+    this.client.onReady(() => this.onSidecarReady());
+
+    // 7. Inject toolbar toggle button into Logseq header
     this.injectToolbarButton();
 
-    // 7. Start sidecar discovery (non-blocking, errors logged)
+    // 8. Start sidecar discovery (non-blocking, errors logged)
     const fixedPort = logseq.settings?.sidecarPort as number | undefined;
     this.client.discover(fixedPort && fixedPort > 0 ? fixedPort : undefined)
       .catch((err) => {
@@ -127,13 +123,76 @@ export class InquiryPanel {
     this.hostDoc.body.classList.toggle('archivist-inquiry-open', this.isOpen);
   }
 
+  /** Trigger a new session from external code (e.g., command palette). */
+  newSession(): void {
+    this.chatView?.newSession();
+  }
+
   destroy(): void {
+    this.chatView?.destroy();
+    this.chatView = null;
+    this.chatViewReady = false;
     this.panelEl.remove();
     this.styleEl?.remove();
     this.toolbarBtn?.remove();
     this.hostDoc.body.classList.remove('archivist-inquiry-open');
     this.client.disconnect();
   }
+
+  // ── Sidecar lifecycle ──────────────────────────────────
+
+  /**
+   * Called when the sidecar sends `connection.ready`.
+   * Creates the ChatView if not already created.
+   */
+  private onSidecarReady(): void {
+    if (this.chatViewReady || !this.contentEl) return;
+
+    console.log('[archivist] Sidecar ready — initializing ChatView');
+
+    this.chatView = new ChatView({
+      doc: this.hostDoc,
+      client: this.client,
+      containerEl: this.contentEl,
+    });
+    this.chatView.init();
+    this.chatViewReady = true;
+
+    // Wire header buttons to ChatView
+    this.newSessionBtn?.addEventListener('click', () => this.chatView?.newSession());
+    this.historyBtn?.addEventListener('click', () => this.chatView?.showSessionHistory());
+  }
+
+  private handleConnectionStateChange(state: ConnectionState): void {
+    this.updateConnectionState(state);
+
+    if (state === 'disconnected' || state === 'reconnecting') {
+      // Don't destroy ChatView on transient disconnects — it preserves
+      // the current conversation and will resume when reconnected.
+      // Only show the connection banner; ChatView stays mounted.
+    }
+
+    // Hide connection indicator when connected (ChatView is the UI now)
+    if (state === 'connected' && this.connectionIndicator) {
+      this.connectionIndicator.style.display = 'none';
+    } else if (this.connectionIndicator) {
+      this.connectionIndicator.style.display = '';
+    }
+  }
+
+  // ── Placeholder ──────────────────────────────────────────
+
+  private showPlaceholder(): void {
+    if (!this.contentEl) return;
+    this.contentEl.textContent = '';
+
+    const placeholder = this.hostDoc.createElement('div');
+    placeholder.className = 'archivist-inquiry-placeholder';
+    placeholder.textContent = 'Start the sidecar to begin chatting';
+    this.contentEl.appendChild(placeholder);
+  }
+
+  // ── DOM helpers ──────────────────────────────────────────
 
   private createActionButton(iconName: string, title: string): HTMLElement {
     const btn = this.hostDoc.createElement('button');
