@@ -12,7 +12,10 @@
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:sidecar": "cd sidecar && npm run build",
+    "build:all": "npm run build && npm run build:sidecar",
+    "test:all": "npm run test && cd sidecar && npm run test"
   },
   "dependencies": {
     "@logseq/libs": "^0.0.17",
