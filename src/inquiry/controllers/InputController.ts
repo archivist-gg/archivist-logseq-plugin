@@ -297,7 +297,7 @@ export class InputController {
     const messagesEl = this.deps.getMessagesEl();
 
     const msgEl = doc.createElement('div');
-    msgEl.className = 'claudian-message claudian-message--user';
+    msgEl.className = 'claudian-message claudian-message-user';
     msgEl.dataset.messageId = msg.id;
 
     const contentEl = doc.createElement('div');
@@ -314,7 +314,7 @@ export class InputController {
     const messagesEl = this.deps.getMessagesEl();
 
     const msgEl = doc.createElement('div');
-    msgEl.className = 'claudian-message claudian-message--assistant';
+    msgEl.className = 'claudian-message claudian-message-assistant';
     msgEl.dataset.messageId = msg.id;
 
     const contentEl = doc.createElement('div');

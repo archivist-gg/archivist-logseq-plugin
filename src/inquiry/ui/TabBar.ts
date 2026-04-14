@@ -47,16 +47,16 @@ export class TabBar {
     this.callbacks = callbacks;
 
     this.container = doc.createElement('div');
-    this.container.className = 'claudian-tab-bar';
+    this.container.className = 'archivist-tab-bar';
     parentEl.appendChild(this.container);
 
     this.tabsEl = doc.createElement('div');
-    this.tabsEl.className = 'claudian-tab-bar-tabs';
+    this.tabsEl.className = 'archivist-tab-bar-tabs';
     this.container.appendChild(this.tabsEl);
 
     // New tab button
     const newTabBtn = doc.createElement('button');
-    newTabBtn.className = 'claudian-tab-bar-new';
+    newTabBtn.className = 'archivist-tab-bar-new';
     newTabBtn.setAttribute('title', 'New tab');
     setIcon(newTabBtn, 'plus');
     newTabBtn.addEventListener('click', () => callbacks.onNewTab());
@@ -76,7 +76,7 @@ export class TabBar {
       tab.title = title;
       const tabEl = this.tabsEl.querySelector(`[data-tab-id="${tabId}"]`) as HTMLElement | null;
       if (tabEl) {
-        const titleEl = tabEl.querySelector('.claudian-tab-title') as HTMLElement | null;
+        const titleEl = tabEl.querySelector('.archivist-tab-title') as HTMLElement | null;
         if (titleEl) {
           titleEl.textContent = title;
           titleEl.setAttribute('title', title);
@@ -107,13 +107,13 @@ export class TabBar {
     const doc = this.doc;
 
     const tabEl = doc.createElement('div');
-    tabEl.className = 'claudian-tab';
+    tabEl.className = 'archivist-tab';
     tabEl.dataset.tabId = tab.id;
     if (tab.isActive) {
-      tabEl.classList.add('claudian-tab--active');
+      tabEl.classList.add('archivist-tab-active');
     }
     if (tab.isDirty) {
-      tabEl.classList.add('claudian-tab--dirty');
+      tabEl.classList.add('archivist-tab-dirty');
     }
 
     // Make draggable
@@ -121,7 +121,7 @@ export class TabBar {
 
     // Title
     const titleEl = doc.createElement('span');
-    titleEl.className = 'claudian-tab-title';
+    titleEl.className = 'archivist-tab-title';
     titleEl.textContent = tab.title;
     titleEl.setAttribute('title', tab.title);
     tabEl.appendChild(titleEl);
@@ -129,7 +129,7 @@ export class TabBar {
     // Close button (show only if more than 1 tab)
     if (this.tabs.length > 1) {
       const closeBtn = doc.createElement('span');
-      closeBtn.className = 'claudian-tab-close';
+      closeBtn.className = 'archivist-tab-close';
       setIcon(closeBtn, 'x');
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -150,33 +150,33 @@ export class TabBar {
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', tab.id);
       }
-      tabEl.classList.add('claudian-tab--dragging');
+      tabEl.classList.add('archivist-tab-dragging');
     });
 
     tabEl.addEventListener('dragend', () => {
       this.draggedTabId = null;
       this.dragOverTabId = null;
-      tabEl.classList.remove('claudian-tab--dragging');
+      tabEl.classList.remove('archivist-tab-dragging');
       // Remove all drag-over classes
-      const allTabs = this.tabsEl.querySelectorAll('.claudian-tab');
-      allTabs.forEach(t => t.classList.remove('claudian-tab--drag-over'));
+      const allTabs = this.tabsEl.querySelectorAll('.archivist-tab');
+      allTabs.forEach(t => t.classList.remove('archivist-tab-drag-over'));
     });
 
     tabEl.addEventListener('dragover', (e) => {
       e.preventDefault();
       if (this.draggedTabId && this.draggedTabId !== tab.id) {
         this.dragOverTabId = tab.id;
-        tabEl.classList.add('claudian-tab--drag-over');
+        tabEl.classList.add('archivist-tab-drag-over');
       }
     });
 
     tabEl.addEventListener('dragleave', () => {
-      tabEl.classList.remove('claudian-tab--drag-over');
+      tabEl.classList.remove('archivist-tab-drag-over');
     });
 
     tabEl.addEventListener('drop', (e) => {
       e.preventDefault();
-      tabEl.classList.remove('claudian-tab--drag-over');
+      tabEl.classList.remove('archivist-tab-drag-over');
       if (this.draggedTabId && this.draggedTabId !== tab.id && this.callbacks.onTabReorder) {
         const fromIndex = this.tabs.findIndex(t => t.id === this.draggedTabId);
         const toIndex = this.tabs.findIndex(t => t.id === tab.id);
@@ -199,18 +199,18 @@ export class TabBar {
     const doc = this.doc;
 
     // Remove any existing context menu
-    const existing = doc.querySelector('.claudian-tab-context-menu');
+    const existing = doc.querySelector('.archivist-tab-context-menu');
     if (existing) existing.remove();
 
     const menu = doc.createElement('div');
-    menu.className = 'claudian-tab-context-menu';
+    menu.className = 'archivist-tab-context-menu';
     menu.style.position = 'fixed';
     menu.style.left = `${e.clientX}px`;
     menu.style.top = `${e.clientY}px`;
     menu.style.zIndex = '10000';
 
     const closeItem = doc.createElement('div');
-    closeItem.className = 'claudian-tab-context-item';
+    closeItem.className = 'archivist-tab-context-item';
     closeItem.textContent = 'Close tab';
     closeItem.addEventListener('click', () => {
       this.callbacks.onTabClose(tab.id);
@@ -219,7 +219,7 @@ export class TabBar {
     menu.appendChild(closeItem);
 
     const closeOthersItem = doc.createElement('div');
-    closeOthersItem.className = 'claudian-tab-context-item';
+    closeOthersItem.className = 'archivist-tab-context-item';
     closeOthersItem.textContent = 'Close other tabs';
     closeOthersItem.addEventListener('click', () => {
       for (const t of this.tabs) {

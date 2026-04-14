@@ -167,35 +167,38 @@ export class ChatView {
 
     // Tab bar area
     this.tabBarEl = doc.createElement('div');
-    this.tabBarEl.className = 'claudian-tab-bar-area';
+    this.tabBarEl.className = 'claudian-tab-bar-container';
     this.containerEl.appendChild(this.tabBarEl);
 
-    // Messages container
+    // Messages wrapper (flex:1, overflow:hidden) -> messages scroll container inside
+    const messagesWrapper = doc.createElement('div');
+    messagesWrapper.className = 'claudian-messages-wrapper';
+    this.containerEl.appendChild(messagesWrapper);
+
     this.messagesContainerEl = doc.createElement('div');
-    this.messagesContainerEl.className = 'claudian-messages-container';
-    this.containerEl.appendChild(this.messagesContainerEl);
+    this.messagesContainerEl.className = 'claudian-messages';
+    messagesWrapper.appendChild(this.messagesContainerEl);
 
     // Welcome message
     this.welcomeEl = doc.createElement('div');
     this.welcomeEl.className = 'claudian-welcome';
-    const welcomeIcon = doc.createElement('div');
-    welcomeIcon.className = 'claudian-welcome-icon';
-    setIcon(welcomeIcon, 'bot');
-    this.welcomeEl.appendChild(welcomeIcon);
-    const welcomeText = doc.createElement('div');
-    welcomeText.className = 'claudian-welcome-text';
-    welcomeText.textContent = 'How can I help?';
-    this.welcomeEl.appendChild(welcomeText);
+    const welcomeSvg = doc.createElement('div');
+    setIcon(welcomeSvg, 'bot');
+    this.welcomeEl.appendChild(welcomeSvg);
+    const welcomeGreeting = doc.createElement('div');
+    welcomeGreeting.className = 'claudian-welcome-greeting';
+    welcomeGreeting.textContent = 'How can I help?';
+    this.welcomeEl.appendChild(welcomeGreeting);
     this.messagesContainerEl.appendChild(this.welcomeEl);
 
     // Input area
     this.inputAreaEl = doc.createElement('div');
-    this.inputAreaEl.className = 'claudian-input-area';
+    this.inputAreaEl.className = 'claudian-input-container';
     this.containerEl.appendChild(this.inputAreaEl);
 
-    // File chips container (above input)
+    // Context row (above input)
     this.chipsContainerEl = doc.createElement('div');
-    this.chipsContainerEl.className = 'claudian-file-chips';
+    this.chipsContainerEl.className = 'claudian-context-row';
     this.inputAreaEl.appendChild(this.chipsContainerEl);
 
     // Input wrapper (contains rich input + send button)
@@ -321,7 +324,7 @@ export class ChatView {
     const id = `tab-${++this.tabIdCounter}`;
 
     const messagesEl = doc.createElement('div');
-    messagesEl.className = 'claudian-tab-messages';
+    messagesEl.className = 'claudian-messages';
 
     const chatState = new ChatState({
       onStreamingStateChanged: (isStreaming) => {
@@ -613,7 +616,7 @@ export class ChatView {
     const doc = this.doc;
 
     const msgEl = doc.createElement('div');
-    msgEl.className = 'claudian-message claudian-message--user';
+    msgEl.className = 'claudian-message claudian-message-user';
     msgEl.dataset.messageId = msg.id;
 
     const contentEl = doc.createElement('div');
@@ -629,7 +632,7 @@ export class ChatView {
     const doc = this.doc;
 
     const msgEl = doc.createElement('div');
-    msgEl.className = 'claudian-message claudian-message--assistant';
+    msgEl.className = 'claudian-message claudian-message-assistant';
     msgEl.dataset.messageId = msg.id;
 
     const contentEl = doc.createElement('div');

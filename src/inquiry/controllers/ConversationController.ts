@@ -258,7 +258,7 @@ export class ConversationController {
       // Render loaded messages
       for (const msg of state.messages) {
         const msgEl = doc.createElement('div');
-        msgEl.className = `claudian-message claudian-message--${msg.role}`;
+        msgEl.className = `claudian-message claudian-message-${msg.role}`;
         msgEl.dataset.messageId = msg.id;
 
         const contentEl = doc.createElement('div');

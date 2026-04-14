@@ -34,6 +34,16 @@
   transform: translateX(0);
 }
 
+/* ── Content area (holds ChatView) ───────────────────── */
+
+.archivist-inquiry-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* ── Header ───────────────────────────────────────────── */
 
 .archivist-inquiry-header {
@@ -552,6 +562,31 @@
   min-width: 0;
 }
 .archivist-tab-bar::-webkit-scrollbar { display: none; }
+
+/* Tab strip inner container (holds tab elements) */
+.archivist-tab-bar-tabs {
+  display: flex;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* New tab button */
+.archivist-tab-bar-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 100%;
+  cursor: pointer;
+  color: var(--ls-tertiary-text-color);
+  background: none;
+  border: none;
+  flex-shrink: 0;
+  padding: 0;
+}
+.archivist-tab-bar-new:hover { color: var(--ls-primary-text-color); }
+.archivist-tab-bar-new svg { width: 14px; height: 14px; }
 
 /* Individual tab */
 .archivist-tab {
@@ -5569,4 +5604,47 @@ code .claudian-file-link:hover {
   outline: 2px solid var(--ls-active-primary-color);
   outline-offset: -2px;
   border-radius: 4px;
+}
+
+/* === Logseq override protection === */
+#archivist-inquiry-panel .claudian-container {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+#archivist-inquiry-panel .claudian-messages-wrapper {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+#archivist-inquiry-panel .claudian-messages {
+  flex: 1 1 0 !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+}
+
+#archivist-inquiry-panel .claudian-input-container {
+  flex-shrink: 0 !important;
+}
+
+#archivist-inquiry-panel .claudian-tab-content-container,
+#archivist-inquiry-panel .claudian-tab-content {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+}
+
+#archivist-inquiry-panel * {
+  box-sizing: border-box;
+}
+
+#archivist-inquiry-panel button {
+  font-family: inherit;
+  cursor: pointer;
 }

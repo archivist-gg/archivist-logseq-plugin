@@ -87,7 +87,7 @@ export class InquiryPanel {
 
     // Content area — will hold placeholder or ChatView
     this.contentEl = this.hostDoc.createElement('div');
-    this.contentEl.className = 'archivist-inquiry-content';
+    this.contentEl.className = 'archivist-inquiry-content claudian-container';
     this.showPlaceholder();
 
     // Assemble panel
