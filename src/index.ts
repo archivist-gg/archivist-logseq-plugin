@@ -24,6 +24,8 @@ import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edi
 import { renderSpellEditMode, wireSpellEditEvents } from "./edit/spell-edit-render";
 import { renderItemEditMode, wireItemEditEvents } from "./edit/item-edit-render";
 import { startInlineTagObserver } from "./extensions/inline-tag-observer";
+import { InquiryPanel } from "./inquiry/InquiryPanel";
+import { SidecarClient } from "./inquiry/SidecarClient";
 
 type ParseResult<T> =
   | { success: true; data: T }
@@ -325,6 +327,13 @@ async function main() {
       title: "Dice Animation Duration (ms)",
       description: "How long the 3D dice overlay stays visible after dice stop rolling. Set to 0 to require a click to dismiss.",
     },
+    {
+      key: "sidecarPort",
+      type: "number",
+      default: 0,
+      title: "Sidecar Port",
+      description: "Fixed sidecar port (0 = auto-discover)",
+    },
   ]);
 
   // Register fenced code block renderers
@@ -420,6 +429,28 @@ entries:
     console.warn("[archivist] Inline tag observer setup failed (cross-origin?):", e);
   }
 
+  // --- Phase 6: Inquiry / Claudian AI Chat ---
+  let inquiryPanel: InquiryPanel | null = null;
+  try {
+    const hostDoc = parent?.document ?? top?.document ?? document;
+    const sidecarClient = new SidecarClient();
+    inquiryPanel = new InquiryPanel(hostDoc, sidecarClient);
+    inquiryPanel.init();
+    console.log("[archivist] Inquiry panel initialized");
+  } catch (e) {
+    console.warn("[archivist] Inquiry panel setup failed:", e);
+  }
+
+  logseq.App.registerCommandPalette(
+    { key: "toggle-inquiry", label: "Toggle Claudian", keybinding: { binding: "mod+shift+i" } },
+    () => { inquiryPanel?.toggle(); },
+  );
+
+  logseq.App.registerCommandPalette(
+    { key: "new-inquiry-session", label: "Claudian: New Session" },
+    () => { /* Will be wired in Task 16 */ },
+  );
+
   logseq.App.registerCommandPalette(
     { key: "archivist-import-srd", label: "Archivist: Import SRD Compendium" },
     async () => {
@@ -463,7 +494,7 @@ entries:
     async () => { await showSearch(); },
   );
 
-  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4)");
+  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4 + 6)");
 }
 
 logseq.ready(main).catch(console.error);
