@@ -161,4 +161,121 @@ describe("CompendiumManager", () => {
       manager.saveEntity("Nonexistent", "monster", { name: "Goblin" }),
     ).rejects.toThrow("Compendium not found");
   });
+
+  describe("discover (batch)", () => {
+    it("discovers compendiums via bulk datascript query", async () => {
+      mockApi.DB.datascriptQuery.mockResolvedValueOnce([
+        [{ name: "srd", "original-name": "SRD", properties: {
+          "archivist-compendium": true,
+          "compendium-description": "System Reference Document",
+          "compendium-readonly": true,
+          "compendium-homebrew": false,
+        }}],
+        [{ name: "homebrew", "original-name": "Homebrew", properties: {
+          "archivist-compendium": true,
+          "compendium-description": "My content",
+          "compendium-readonly": false,
+          "compendium-homebrew": true,
+        }}],
+        [{ name: "journal", "original-name": "Journal", properties: {} }],
+      ]);
+
+      await manager.discover();
+
+      expect(manager.getAll()).toHaveLength(2);
+      expect(manager.getByName("SRD")).toBeDefined();
+      expect(manager.getByName("SRD")!.readonly).toBe(true);
+      expect(manager.getByName("Homebrew")).toBeDefined();
+      expect(manager.getByName("Homebrew")!.homebrew).toBe(true);
+      expect(mockApi.DB.datascriptQuery).toHaveBeenCalledTimes(1);
+      expect(mockApi.Editor.getPage).not.toHaveBeenCalled();
+    });
+
+    it("deduplicates namespace parents with multiple children", async () => {
+      mockApi.DB.datascriptQuery.mockResolvedValueOnce([
+        [{ name: "srd", "original-name": "SRD", properties: {
+          "archivist-compendium": true,
+        }}],
+        [{ name: "srd", "original-name": "SRD", properties: {
+          "archivist-compendium": true,
+        }}],
+      ]);
+
+      await manager.discover();
+      expect(manager.getAll()).toHaveLength(1);
+    });
+  });
+
+  describe("loadAllEntities (batch)", () => {
+    it("loads entities via bulk datascript queries", async () => {
+      manager.addCompendium({
+        name: "SRD", description: "SRD", readonly: true, homebrew: false,
+      });
+
+      mockApi.DB.datascriptQuery
+        .mockResolvedValueOnce([
+          [{ name: "srd/monsters/goblin", "original-name": "SRD/Monsters/Goblin", properties: {
+            archivist: true, "entity-type": "monster", slug: "goblin", name: "Goblin", compendium: "SRD",
+          }}],
+          [{ name: "srd/spells/fireball", "original-name": "SRD/Spells/Fireball", properties: {
+            archivist: true, "entity-type": "spell", slug: "fireball", name: "Fireball", compendium: "SRD",
+          }}],
+        ])
+        .mockResolvedValueOnce([
+          ["srd/monsters/goblin", "```monster\nname: Goblin\ncr: \"1/4\"\n```"],
+          ["srd/spells/fireball", "```spell\nname: Fireball\nlevel: 3\n```"],
+        ]);
+
+      const count = await manager.loadAllEntities();
+
+      expect(count).toBe(2);
+      expect(registry.getBySlug("goblin")).toBeDefined();
+      expect(registry.getBySlug("goblin")!.entityType).toBe("monster");
+      expect(registry.getBySlug("fireball")).toBeDefined();
+      expect(registry.getBySlug("fireball")!.entityType).toBe("spell");
+      expect(mockApi.DB.datascriptQuery).toHaveBeenCalledTimes(2);
+      expect(mockApi.Editor.getPage).not.toHaveBeenCalled();
+      expect(mockApi.Editor.getPageBlocksTree).not.toHaveBeenCalled();
+    });
+
+    it("skips pages without archivist flag", async () => {
+      manager.addCompendium({
+        name: "SRD", description: "SRD", readonly: true, homebrew: false,
+      });
+
+      mockApi.DB.datascriptQuery
+        .mockResolvedValueOnce([
+          [{ name: "srd/monsters/goblin", "original-name": "SRD/Monsters/Goblin", properties: {
+            archivist: true, "entity-type": "monster", slug: "goblin", name: "Goblin", compendium: "SRD",
+          }}],
+          [{ name: "srd/notes/session1", "original-name": "SRD/Notes/Session1", properties: {} }],
+        ])
+        .mockResolvedValueOnce([
+          ["srd/monsters/goblin", "```monster\nname: Goblin\n```"],
+          ["srd/notes/session1", "Some random notes"],
+        ]);
+
+      const count = await manager.loadAllEntities();
+      expect(count).toBe(1);
+      expect(registry.getBySlug("goblin")).toBeDefined();
+    });
+
+    it("handles pages with no matching block content", async () => {
+      manager.addCompendium({
+        name: "SRD", description: "SRD", readonly: true, homebrew: false,
+      });
+
+      mockApi.DB.datascriptQuery
+        .mockResolvedValueOnce([
+          [{ name: "srd/monsters/goblin", "original-name": "SRD/Monsters/Goblin", properties: {
+            archivist: true, "entity-type": "monster", slug: "goblin", name: "Goblin", compendium: "SRD",
+          }}],
+        ])
+        .mockResolvedValueOnce([]);
+
+      const count = await manager.loadAllEntities();
+      expect(count).toBe(1);
+      expect(registry.getBySlug("goblin")!.data).toEqual({});
+    });
+  });
 });

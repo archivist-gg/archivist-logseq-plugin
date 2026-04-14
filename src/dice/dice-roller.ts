@@ -1,6 +1,21 @@
 import type { LexicalToken, Conditional } from "./lexer";
 import type { DiceShape } from "./renderer/shapes";
-import { diceRenderer } from "./renderer/dice-renderer";
+
+/**
+ * Indirect reference to the dice renderer, set lazily by roll.ts
+ * when Three.js/cannon-es are first loaded. This avoids a static import
+ * of dice-renderer.ts (which pulls in ~460KB of Three.js + cannon-es).
+ */
+/** Must stay in sync with DiceRendererClass.getDiceForRoller / addDice signatures */
+interface DiceRendererRef {
+  getDiceForRoller(roller: DiceRoller): DiceShape[];
+  addDice(shapes: DiceShape[]): Promise<void>;
+}
+let _diceRendererRef: DiceRendererRef | null = null;
+
+export function setDiceRendererRef(ref: DiceRendererRef | null): void {
+  _diceRendererRef = ref;
+}
 
 function insertIntoMap<K, V>(map: Map<K, V>, key: K, value: V): void {
   map.set(key, value);
@@ -115,7 +130,7 @@ export class DiceRoller {
     if (index !== undefined && this.shapes.has(index)) {
       return this.shapes.get(index)!;
     }
-    const shapes = diceRenderer?.getDiceForRoller(this) ?? [];
+    const shapes = _diceRendererRef?.getDiceForRoller(this) ?? [];
     if (index !== undefined) {
       this.shapes.set(index, shapes);
     }
@@ -366,10 +381,10 @@ export class DiceRoller {
     return arr.every((v) => this.possibilities.includes(v));
   }
   async getValue(shapes?: DiceShape[]): Promise<number> {
-    if (this.shouldRender && this.canRender() && diceRenderer) {
+    if (this.shouldRender && this.canRender() && _diceRendererRef) {
       const temp = shapes ?? this.getShapes();
       if (temp.length) {
-        await diceRenderer.addDice(temp);
+        await _diceRendererRef.addDice(temp);
         return this.resolveShapeValue(temp);
       }
     }

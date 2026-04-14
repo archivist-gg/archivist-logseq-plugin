@@ -1,27 +1,49 @@
 import { DiceEngine } from "./engine";
-import { diceRenderer } from "./renderer/dice-renderer";
+import { setDiceRendererRef } from "./dice-roller";
 
-const engine = new DiceEngine();
+let engine: DiceEngine | null = null;
+let rendererMod: typeof import("./renderer/dice-renderer") | null = null;
 
 /**
- * Roll dice with 3D animation. The physics simulation IS the RNG —
- * dice land naturally and getUpsideValue() reads the settled face.
- * This matches the original Obsidian dice-roller architecture.
+ * Roll dice with 3D animation. Lazily initializes the dice renderer
+ * on first call — Three.js and cannon-es are only loaded when the
+ * user actually rolls dice.
  */
-export async function rollDice(notation: string): Promise<void> {
+export async function rollDice(
+  notation: string,
+  renderTime?: number,
+): Promise<void> {
+  // Lazy-init renderer on first roll
+  if (!rendererMod) {
+    rendererMod = await import("./renderer/dice-renderer");
+    const hostDoc = parent?.document ?? (typeof top !== "undefined" ? top?.document : null) ?? document;
+    if (hostDoc) {
+      rendererMod.initDiceRenderer(hostDoc, renderTime);
+      // Wire the renderer into dice-roller.ts so DiceRoller can access
+      // 3D shapes without statically importing Three.js/cannon-es.
+      if (rendererMod.diceRenderer) {
+        setDiceRendererRef(rendererMod.diceRenderer);
+      }
+    }
+  }
+
+  // Apply current renderTime on every roll (user may change setting mid-session)
+  if (rendererMod?.diceRenderer && renderTime !== undefined) {
+    rendererMod.diceRenderer.renderTime = renderTime;
+  }
+
+  if (!engine) engine = new DiceEngine();
+
   const roller = engine.getRoller(notation, { shouldRender: true });
   if (!roller) return;
 
-  // roll(true) sets shouldRender on children, which makes DiceRoller.getValue()
-  // create 3D shapes via getShapes(), animate via addDice(), then read the
-  // settled face value via resolveShapeValue(). The result IS the 3D dice.
   await roller.roll(true);
 
   showResult(notation, roller.result);
 }
 
 function showResult(notation: string, result: number): void {
-  const doc = diceRenderer?.hostDocument;
+  const doc = rendererMod?.diceRenderer?.hostDocument;
   if (!doc) return;
 
   const el = doc.createElement("div");
@@ -55,7 +77,7 @@ function showResult(notation: string, result: number): void {
   });
   doc.body.appendChild(el);
 
-  const duration = diceRenderer?.renderTime ?? 3000;
+  const duration = rendererMod?.diceRenderer?.renderTime ?? 3000;
   setTimeout(() => {
     el.style.opacity = "0";
     setTimeout(() => el.remove(), 500);

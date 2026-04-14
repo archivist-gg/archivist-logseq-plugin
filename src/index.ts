@@ -12,10 +12,8 @@ import { renderErrorBlock, escapeHtml } from "./renderers/renderer-utils";
 import css from "./styles/archivist-dnd.css?raw";
 import editCss from "./styles/archivist-edit.css?raw";
 import searchCss from "./ui/entity-search.css?raw";
-import { SrdStore } from "./srd/srd-store";
 import { EntityRegistry } from "./entities/entity-registry";
 import { CompendiumManager } from "./entities/compendium-manager";
-import { importSrdToLogseq } from "./entities/entity-importer";
 import { initEntitySearch, showSearch } from "./ui/entity-search";
 import { findBlockUuid, getCompendiumContext } from "./edit/block-utils";
 import type { CompendiumContext } from "./edit/block-utils";
@@ -26,8 +24,6 @@ import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edi
 import { renderSpellEditMode, wireSpellEditEvents } from "./edit/spell-edit-render";
 import { renderItemEditMode, wireItemEditEvents } from "./edit/item-edit-render";
 import { startInlineTagObserver } from "./extensions/inline-tag-observer";
-import { initDiceRenderer } from "./dice/renderer/dice-renderer";
-import { rollDice } from "./dice/roll";
 
 type ParseResult<T> =
   | { success: true; data: T }
@@ -133,10 +129,13 @@ function createStatefulBlockRenderer(
         if (logseq.settings?.diceEnabled !== false) {
           el.querySelectorAll(".archivist-stat-tag[data-dice-notation]").forEach((tagEl: Element) => {
             (tagEl as HTMLElement).style.cursor = "pointer";
-            tagEl.addEventListener("click", (e: Event) => {
+            tagEl.addEventListener("click", async (e: Event) => {
               e.stopPropagation();
               const notation = (tagEl as HTMLElement).dataset.diceNotation;
-              if (notation) rollDice(notation);
+              if (!notation) return;
+              const renderTime = (logseq.settings?.diceRenderTime as number) ?? 3000;
+              const { rollDice } = await import("./dice/roll");
+              await rollDice(notation, renderTime);
             });
           });
         }
@@ -392,9 +391,6 @@ entries:
   });
 
   // --- Phase 2: Entity & Compendium System ---
-  const srdStore = new SrdStore();
-  srdStore.loadFromBundledJson();
-
   const registry = new EntityRegistry();
   const manager = new CompendiumManager(registry, logseq as any);
 
@@ -424,18 +420,6 @@ entries:
     console.warn("[archivist] Inline tag observer setup failed (cross-origin?):", e);
   }
 
-  // --- Phase 5: Dice Rolling ---
-  try {
-    const diceHostDoc = parent?.document ?? top?.document;
-    if (diceHostDoc) {
-      const renderTime = (logseq.settings?.diceRenderTime as number) ?? 3000;
-      initDiceRenderer(diceHostDoc, renderTime);
-      console.log("[archivist] Dice renderer initialized");
-    }
-  } catch (e) {
-    console.warn("[archivist] Dice renderer setup failed:", e);
-  }
-
   logseq.App.registerCommandPalette(
     { key: "archivist-import-srd", label: "Archivist: Import SRD Compendium" },
     async () => {
@@ -444,7 +428,18 @@ entries:
         await logseq.UI.showMsg("SRD compendium already imported", "warning");
         return;
       }
+
       await logseq.UI.showMsg("Importing SRD compendium...", "success", { timeout: 3000 });
+
+      // Lazy-load SRD data + importer (removes ~2.48MB from startup bundle)
+      const [{ SrdStore }, { importSrdToLogseq }] = await Promise.all([
+        import("./srd/srd-store"),
+        import("./entities/entity-importer"),
+      ]);
+
+      const srdStore = new SrdStore();
+      srdStore.loadFromBundledJson();
+
       const count = await importSrdToLogseq(
         srdStore, manager, registry, logseq as any,
         (current, total) => {
@@ -468,7 +463,7 @@ entries:
     async () => { await showSearch(); },
   );
 
-  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4 + 5 dice rolling)");
+  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4)");
 }
 
 logseq.ready(main).catch(console.error);

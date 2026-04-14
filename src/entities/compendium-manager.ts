@@ -181,36 +181,36 @@ export class CompendiumManager {
   /**
    * Discover compendiums by querying Logseq for pages with the
    * `archivist-compendium` property set to true.
+   *
+   * Uses a single bulk Datascript pull query instead of iterating
+   * namespace parents with individual getPage() calls.
    */
   async discover(): Promise<void> {
-    // Datascript property-based queries use keyword formats that vary across
-    // Logseq versions. Instead, find pages that have namespaced children
-    // (a signal they might be compendiums) and check via getPage() which
-    // reliably returns camelCase properties.
+    // One query: get all namespace parent pages with their properties
     const nsResults = await this.api.DB.datascriptQuery(
-      `[:find ?parent
+      `[:find (pull ?ns [:block/name :block/original-name :block/properties])
         :where
-        [?p :block/namespace ?ns]
-        [?ns :block/name ?parent]]`,
+        [?p :block/namespace ?ns]]`,
     );
 
-    const parentNames = new Set<string>();
-    for (const [name] of nsResults) {
-      if (typeof name === "string") parentNames.add(name);
-    }
+    // Deduplicate (a parent appears once per namespace child)
+    const seen = new Set<string>();
 
-    console.log("[archivist] discover() checking", parentNames.size, "namespace parents");
+    console.log("[archivist] discover() processing", nsResults.length, "namespace results");
 
-    for (const parentName of parentNames) {
+    for (const [page] of nsResults) {
       try {
-        const page = await this.api.Editor.getPage(parentName);
         if (!page?.properties) continue;
+
+        const pageName = (page["original-name"] || page.name) as string;
+        if (!pageName || seen.has(pageName)) continue;
+        seen.add(pageName);
 
         const flag = prop(page.properties, "archivist-compendium");
         if (!isTruthy(flag)) continue;
 
         const comp: Compendium = {
-          name: page.originalName || page.name,
+          name: pageName,
           description: prop(page.properties, "compendium-description", "") as string,
           readonly: isTruthy(prop(page.properties, "compendium-readonly", false)),
           homebrew: isTruthy(prop(page.properties, "compendium-homebrew", false)),
@@ -226,56 +226,66 @@ export class CompendiumManager {
 
   /**
    * Load all entities from all known compendiums by querying Logseq for
-   * pages with the `archivist` property set to true. Reads the first block
-   * of each page to extract the fenced code block YAML data.
+   * pages with the `archivist` property set to true. Reads block content
+   * to extract the fenced code block YAML data.
+   *
+   * Uses 2 parallel bulk Datascript queries per compendium instead of
+   * individual getPage() + getPageBlocksTree() calls per entity.
    *
    * Returns the total count of entities loaded.
    */
   async loadAllEntities(): Promise<number> {
     let totalCount = 0;
 
-    // Datascript property queries are unreliable across Logseq versions.
-    // Instead, use structural namespace queries (which work reliably) to
-    // find entity pages, then getPage() for property access.
-    //
-    // Entity pages are grandchildren of compendium pages:
-    //   SRD / Monsters / Goblin
-    //   ^comp  ^type     ^entity
     for (const [compName, comp] of this.compendiums) {
-      // Find the compendium page's DB id
-      const compResults = await this.api.DB.datascriptQuery(
-        `[:find ?id :in $ ?name :where [?id :block/name ?name]]`,
-        `"${compName.toLowerCase()}"`,
-      );
-      if (compResults.length === 0) continue;
-      const compId = compResults[0][0];
+      // Two parallel queries replace ~1920 sequential IPC calls:
+      const [entityResults, blockResults] = await Promise.all([
+        // Query 1: entity pages with properties (grandchildren of compendium)
+        this.api.DB.datascriptQuery(
+          `[:find (pull ?entity [:block/name :block/original-name :block/properties])
+            :in $ ?comp-name
+            :where
+            [?comp :block/name ?comp-name]
+            [?type :block/namespace ?comp]
+            [?entity :block/namespace ?type]]`,
+          `"${compName.toLowerCase()}"`,
+        ),
+        // Query 2: block content for entity pages
+        this.api.DB.datascriptQuery(
+          `[:find ?entity-name ?content
+            :in $ ?comp-name
+            :where
+            [?comp :block/name ?comp-name]
+            [?type :block/namespace ?comp]
+            [?entity :block/namespace ?type]
+            [?entity :block/name ?entity-name]
+            [?b :block/page ?entity]
+            [?b :block/content ?content]]`,
+          `"${compName.toLowerCase()}"`,
+        ),
+      ]);
 
-      // Find type-folder pages (direct children of compendium)
-      const typeResults = await this.api.DB.datascriptQuery(
-        `[:find ?id :in $ ?parent :where [?id :block/namespace ?parent]]`,
-        compId,
-      );
-
-      // Find entity pages (children of type-folders)
-      const entityPageIds: number[] = [];
-      for (const [typeId] of typeResults) {
-        const entityResults = await this.api.DB.datascriptQuery(
-          `[:find ?id :in $ ?parent :where [?id :block/namespace ?parent]]`,
-          typeId,
-        );
-        for (const [entityId] of entityResults) {
-          entityPageIds.push(entityId);
-        }
+      // Build content map: page-name -> block contents
+      const contentByPage = new Map<string, string[]>();
+      for (const [pageName, content] of blockResults) {
+        if (typeof pageName !== "string" || typeof content !== "string") continue;
+        if (!contentByPage.has(pageName)) contentByPage.set(pageName, []);
+        contentByPage.get(pageName)!.push(content);
       }
 
-      console.log("[archivist] loadAllEntities() compendium", compName, ":", entityPageIds.length, "entity pages");
+      console.log(
+        "[archivist] loadAllEntities() compendium",
+        compName,
+        ":",
+        entityResults.length,
+        "entity pages",
+      );
 
-      // Load each entity via getPage() for reliable property access
-      for (const pageId of entityPageIds) {
+      // Process entity pages
+      for (const [entity] of entityResults) {
         try {
-          const page = await this.api.Editor.getPage(pageId);
-          if (!page?.properties) continue;
-          const props = page.properties;
+          if (!entity?.properties) continue;
+          const props = entity.properties;
 
           const archivistFlag = prop(props, "archivist");
           if (!isTruthy(archivistFlag)) continue;
@@ -295,15 +305,16 @@ export class CompendiumManager {
             continue;
           }
 
-          // Read first block for YAML data
-          const pageName = page.originalName || page.name;
-          const blocks = await this.api.Editor.getPageBlocksTree(pageName);
+          // Extract YAML data from block content
+          const pageName = (entity["original-name"] || entity.name) as string;
           let data: Record<string, unknown> = {};
 
-          if (blocks.length > 0) {
-            const extracted = extractYamlFromBlock(blocks[0].content);
+          const blocks = contentByPage.get(entity.name as string) ?? [];
+          for (const blockContent of blocks) {
+            const extracted = extractYamlFromBlock(blockContent);
             if (extracted) {
               data = extracted;
+              break;
             }
           }
 
