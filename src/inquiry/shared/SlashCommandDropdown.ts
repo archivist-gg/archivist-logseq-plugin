@@ -2,11 +2,13 @@
  * SlashCommandDropdown -- Slash command dropdown for the chat input.
  *
  * Fetches commands from the sidecar via `client.fetchCommands()`,
- * shows a filtered list, and inserts the selected command.
+ * merges with built-in commands (which have highest priority),
+ * shows a filtered list, and executes/inserts the selected command.
  * Pure DOM with keyboard navigation (arrow keys, enter, escape).
  */
 
 import type { SidecarClient } from '../SidecarClient';
+import { getBuiltInCommandsForDropdown } from '../controllers/InputController';
 import { setIcon } from './icons';
 
 // ── Types ─────────────────────────────────────────────────
@@ -14,6 +16,8 @@ import { setIcon } from './icons';
 export interface SlashCommand {
   name: string;
   description: string;
+  /** True if this is a client-side built-in command. */
+  isBuiltIn?: boolean;
 }
 
 export interface SlashCommandDropdownOptions {
@@ -75,7 +79,7 @@ export class SlashCommandDropdown {
     // Append
     this.doc.body.appendChild(this.containerEl);
 
-    // Load commands from sidecar
+    // Load commands (built-in + sidecar)
     this.loadCommands();
 
     // Global click handler
@@ -134,11 +138,30 @@ export class SlashCommandDropdown {
   // ── Private ─────────────────────────────────────────────
 
   private async loadCommands(): Promise<void> {
-    try {
-      this.commands = await this.options.client.fetchCommands();
-    } catch {
-      this.commands = [];
+    // Start with built-in commands (available immediately)
+    const builtIn = getBuiltInCommandsForDropdown();
+    const seenNames = new Set<string>();
+
+    // Built-in commands have highest priority
+    for (const cmd of builtIn) {
+      seenNames.add(cmd.name.toLowerCase());
+      this.commands.push(cmd);
     }
+
+    // Fetch sidecar commands asynchronously
+    try {
+      const sidecarCommands = await this.options.client.fetchCommands();
+      for (const cmd of sidecarCommands) {
+        const nameLower = cmd.name.toLowerCase();
+        if (!seenNames.has(nameLower)) {
+          seenNames.add(nameLower);
+          this.commands.push(cmd);
+        }
+      }
+    } catch {
+      // Sidecar commands unavailable — built-in commands still work
+    }
+
     this.filterAndRender();
   }
 
@@ -207,6 +230,14 @@ export class SlashCommandDropdown {
       nameEl.textContent = cmd.name;
       nameEl.style.cssText = 'font-size: 13px; font-weight: 500;';
       nameRow.appendChild(nameEl);
+
+      // Built-in badge
+      if (cmd.isBuiltIn) {
+        const badge = this.doc.createElement('span');
+        badge.textContent = 'built-in';
+        badge.style.cssText = 'font-size: 9px; color: var(--ls-secondary-text-color, #999); background: var(--ls-tertiary-background-color, #f0f0f0); padding: 1px 4px; border-radius: 3px; margin-left: 4px;';
+        nameRow.appendChild(badge);
+      }
 
       // Description
       if (cmd.description) {

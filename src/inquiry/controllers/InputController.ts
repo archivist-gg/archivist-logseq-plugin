@@ -22,6 +22,107 @@ import type { SelectionController } from './SelectionController';
 import type { ConversationController } from './ConversationController';
 import { COMPLETION_FLAVOR_WORDS } from '../constants';
 
+// ── Built-in Command Definitions ───────────────────────────
+
+export type BuiltInCommandAction = 'clear' | 'new' | 'resume' | 'fork' | 'generate' | 'search-srd' | 'roll';
+
+export interface BuiltInCommand {
+  name: string;
+  aliases?: string[];
+  description: string;
+  action: BuiltInCommandAction;
+  hasArgs?: boolean;
+  argumentHint?: string;
+}
+
+export const BUILT_IN_COMMANDS: BuiltInCommand[] = [
+  {
+    name: 'clear',
+    description: 'Clear messages in current conversation',
+    action: 'clear',
+  },
+  {
+    name: 'new',
+    description: 'Start a new conversation',
+    action: 'new',
+  },
+  {
+    name: 'resume',
+    description: 'Resume a previous conversation',
+    action: 'resume',
+  },
+  {
+    name: 'fork',
+    description: 'Fork current conversation to new session',
+    action: 'fork',
+  },
+  {
+    name: 'generate',
+    description: 'Generate a D&D entity (monster, spell, item, encounter, NPC)',
+    action: 'generate',
+    hasArgs: true,
+    argumentHint: '<monster|spell|item|encounter|npc> [description]',
+  },
+  {
+    name: 'search-srd',
+    description: 'Search SRD content by name',
+    action: 'search-srd',
+    hasArgs: true,
+    argumentHint: '[query]',
+  },
+  {
+    name: 'roll',
+    description: 'Roll dice (e.g., /roll 2d6+3)',
+    action: 'roll',
+    hasArgs: true,
+    argumentHint: '<notation>',
+  },
+];
+
+/** Map of command names to their definitions. */
+const builtInCommandMap = new Map<string, BuiltInCommand>();
+for (const cmd of BUILT_IN_COMMANDS) {
+  builtInCommandMap.set(cmd.name.toLowerCase(), cmd);
+  if (cmd.aliases) {
+    for (const alias of cmd.aliases) {
+      builtInCommandMap.set(alias.toLowerCase(), cmd);
+    }
+  }
+}
+
+/**
+ * Detects if input text is a built-in slash command.
+ * Returns the command and args if found, null otherwise.
+ */
+export function detectBuiltInCommand(input: string): { command: BuiltInCommand; args: string } | null {
+  const trimmed = input.trim();
+  if (!trimmed.startsWith('/')) return null;
+
+  const match = trimmed.match(/^\/([a-zA-Z0-9_-]+)(?:\s(.*))?$/);
+  if (!match) return null;
+
+  const cmdName = match[1].toLowerCase();
+  const command = builtInCommandMap.get(cmdName);
+  if (!command) return null;
+
+  return { command, args: (match[2] || '').trim() };
+}
+
+/**
+ * Returns built-in commands formatted for the SlashCommandDropdown.
+ */
+export function getBuiltInCommandsForDropdown(): Array<{
+  name: string;
+  description: string;
+  isBuiltIn: true;
+}> {
+  return BUILT_IN_COMMANDS.map((cmd) => ({
+    name: cmd.name,
+    description: cmd.description,
+    isBuiltIn: true as const,
+  }));
+}
+
 function formatDurationMmSs(seconds: number): string {
   const mm = Math.floor(seconds / 60);
   const ss = seconds % 60;
@@ -44,6 +145,10 @@ export interface InputControllerDeps {
   resetInputHeight: () => void;
   /** Callback when permission mode changes (toggle or stream detection). */
   onPermissionModeChanged?: (mode: 'unleashed' | 'guarded') => void;
+  /** Callback to create a new tab. */
+  onNewTab?: () => void;
+  /** Callback to fork the entire current conversation. */
+  onForkAll?: () => Promise<void>;
 }
 
 export class InputController {
@@ -107,6 +212,18 @@ export class InputController {
 
     const content = (contentOverride ?? this.getInputText()).trim();
     if (!content) return;
+
+    // Check for built-in commands first (e.g., /clear, /new, /roll)
+    const builtInCmd = detectBuiltInCommand(content);
+    if (builtInCmd) {
+      if (shouldUseInput) {
+        this.clearInputEl();
+        this.deps.resetInputHeight();
+      }
+      const handled = await this.handleBuiltInCommand(builtInCmd.command.action, builtInCmd.args);
+      if (handled) return;
+      // If not handled, fall through to send as a query to the sidecar
+    }
 
     // If agent is working, queue the message instead of dropping it
     if (state.isStreaming) {
@@ -675,6 +792,86 @@ export class InputController {
 
     container.appendChild(btnRow);
     this.mountInlineEl(container);
+  }
+
+  // ============================================
+  // Built-in Commands
+  // ============================================
+
+  /**
+   * Handles a built-in slash command.
+   * Returns true if the command was handled client-side, false to pass through to sidecar.
+   */
+  async handleBuiltInCommand(action: string, args: string): Promise<boolean> {
+    const { conversationController, state, client } = this.deps;
+
+    switch (action) {
+      case 'clear':
+        await conversationController.createNew();
+        return true;
+
+      case 'new':
+        this.deps.onNewTab?.();
+        return true;
+
+      case 'resume':
+        conversationController.toggleHistoryDropdown();
+        return true;
+
+      case 'fork': {
+        if (!this.deps.onForkAll) return true;
+        await this.deps.onForkAll();
+        return true;
+      }
+
+      case 'generate': {
+        if (!args) return true;
+        // Send as a query with a generate-oriented prompt
+        const generatePrompt = `Generate a D&D 5e ${args}. Output the result as a complete YAML code block that can be used in an Archivist stat block.`;
+        void this.sendMessage({ content: generatePrompt });
+        return true;
+      }
+
+      case 'search-srd': {
+        if (!args) return true;
+        // Send as a query asking the AI to search SRD
+        const searchPrompt = `Search the SRD for: ${args}`;
+        void this.sendMessage({ content: searchPrompt });
+        return true;
+      }
+
+      case 'roll': {
+        if (!args) return true;
+        try {
+          const { rollDice } = await import('../../dice/roll');
+          await rollDice(args);
+        } catch {
+          // Dice engine not available or invalid notation — show inline feedback
+          this.showEphemeralNotice(`Could not roll: ${args}`);
+        }
+        return true;
+      }
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Shows a brief ephemeral notice in the messages area.
+   */
+  private showEphemeralNotice(text: string): void {
+    const { doc } = this.deps;
+    const messagesEl = this.deps.getMessagesEl();
+    const noticeEl = doc.createElement('div');
+    noticeEl.className = 'claudian-ephemeral-notice';
+    noticeEl.textContent = text;
+    messagesEl.appendChild(noticeEl);
+
+    setTimeout(() => {
+      noticeEl.style.opacity = '0';
+      setTimeout(() => noticeEl.remove(), 400);
+    }, 3000);
   }
 
   // ============================================
