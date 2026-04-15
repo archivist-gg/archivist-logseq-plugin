@@ -14,6 +14,24 @@ import type {
   StreamToolResultMessage,
   StreamToolUseMessage,
 } from '../protocol';
+import {
+  getDndGenerationEntityType,
+  getToolName,
+  getToolSummary,
+  isBlockedToolResult,
+  isSubagentToolName,
+  renderBlockSkeleton,
+  renderDndEntityAfterToolCall,
+  renderToolCall,
+  updateToolCallResult,
+} from '../rendering/ToolCallRenderer';
+import {
+  createSubagentBlock,
+  addSubagentToolCall,
+  updateSubagentToolResult,
+  finalizeSubagentBlock,
+  type SubagentState,
+} from '../rendering/SubagentRenderer';
 import type { ChatState } from '../state/ChatState';
 import type {
   ChatMessage,
@@ -64,6 +82,16 @@ export class StreamController {
   private deps: StreamControllerDeps;
   private rendererBridge: StreamRendererBridge | null = null;
 
+  /** Active skeleton placeholders for D&D entity generation tools, keyed by tool ID. */
+  private activeSkeletons = new Map<string, {
+    skeleton: ReturnType<typeof renderBlockSkeleton>;
+    accumulatedInput: string;
+    lastValidParse: Record<string, unknown> | null;
+  }>();
+
+  /** Active sync subagent states, keyed by parent tool ID. */
+  private syncSubagentStates = new Map<string, SubagentState>();
+
   constructor(deps: StreamControllerDeps) {
     this.deps = deps;
   }
@@ -82,6 +110,13 @@ export class StreamController {
    */
   async handleServerMessage(msg: ServerMessage, assistantMsg: ChatMessage): Promise<void> {
     const { state } = this.deps;
+
+    // Route subagent chunks (messages tagged with parentToolUseId)
+    if ('parentToolUseId' in msg && msg.parentToolUseId) {
+      await this.handleSubagentChunk(msg, assistantMsg);
+      this.scrollToBottom();
+      return;
+    }
 
     switch (msg.type) {
       case 'stream.thinking':
@@ -112,7 +147,7 @@ export class StreamController {
         break;
 
       case 'stream.blocked':
-        await this.appendText(`\n\n**Blocked:** ${msg.content}`);
+        this.renderBlockedContent(msg.content);
         break;
 
       case 'stream.error':
@@ -162,7 +197,8 @@ export class StreamController {
       }
 
       case 'stream.subagent':
-        // TODO: Wire subagent rendering when SubagentManager is ported
+        // Handled by SubagentManager via its own onMessage listener.
+        // The manager tracks state; we only need to handle parentToolUseId-tagged chunks above.
         break;
 
       // Non-stream messages are not handled here
@@ -187,13 +223,27 @@ export class StreamController {
       if (Object.keys(newInput).length > 0) {
         existingToolCall.input = { ...existingToolCall.input, ...newInput };
 
-        // If already rendered, update the header name
+        // If already rendered, update the header name + summary
         const toolEl = state.toolCallElements.get(msg.id);
         if (toolEl) {
           const nameEl = toolEl.querySelector('.claudian-tool-name') as HTMLElement | null;
           if (nameEl) {
-            nameEl.textContent = msg.name;
+            nameEl.textContent = getToolName(existingToolCall.name, existingToolCall.input);
           }
+          const summaryEl = toolEl.querySelector('.claudian-tool-summary') as HTMLElement | null;
+          if (summaryEl) {
+            summaryEl.textContent = getToolSummary(existingToolCall.name, existingToolCall.input);
+          }
+        }
+
+        // Track Write to ~/.claude/plans/ on input updates (file_path may arrive in a later chunk)
+        if (existingToolCall.name === TOOL_WRITE) {
+          this.capturePlanFilePath(existingToolCall.input);
+        }
+
+        // Update skeleton with new partial data if this is a D&D generation tool
+        if (this.activeSkeletons.has(msg.id)) {
+          this.updateSkeletonFromInput(msg.id, existingToolCall.input);
         }
       }
       return;
@@ -212,7 +262,6 @@ export class StreamController {
 
     // Add to contentBlocks for ordering
     assistantMsg.contentBlocks = assistantMsg.contentBlocks || [];
-    assistantMsg.contentBlocks.push({ type: 'tool_use', toolId: msg.id });
 
     // Detect EnterPlanMode: switch to guarded permission mode
     if (msg.name === TOOL_ENTER_PLAN_MODE) {
@@ -225,87 +274,206 @@ export class StreamController {
       this.capturePlanFilePath(msg.input);
     }
 
+    // Handle subagent (Agent/Task) tool use: create a subagent block instead of a normal tool element
+    if (isSubagentToolName(msg.name)) {
+      assistantMsg.contentBlocks.push({ type: 'subagent', subagentId: msg.id });
+      if (state.currentContentEl) {
+        const subagentState = createSubagentBlock(doc, state.currentContentEl, msg.id, msg.input);
+        this.syncSubagentStates.set(msg.id, subagentState);
+
+        // Record subagent info on the tool call for persistence
+        toolCall.subagent = subagentState.info;
+
+        // Store the wrapper element in toolCallElements for later reference
+        state.toolCallElements.set(msg.id, subagentState.wrapperEl);
+      }
+      this.showThinkingIndicator();
+      return;
+    }
+
+    assistantMsg.contentBlocks.push({ type: 'tool_use', toolId: msg.id });
+
     // Render the tool call element
     if (state.currentContentEl) {
-      const toolEl = this.renderToolCall(doc, state.currentContentEl, toolCall);
+      const toolEl = renderToolCall(doc, state.currentContentEl, toolCall, state.toolCallElements);
       state.toolCallElements.set(msg.id, toolEl);
+
+      // For D&D generation tools, create a skeleton placeholder below the tool element
+      const entityType = getDndGenerationEntityType(msg.name);
+      if (entityType) {
+        const skeleton = renderBlockSkeleton(doc, state.currentContentEl, entityType);
+        this.activeSkeletons.set(msg.id, {
+          skeleton,
+          accumulatedInput: '',
+          lastValidParse: null,
+        });
+
+        // If the tool input already has data, immediately update the skeleton
+        if (msg.input && Object.keys(msg.input).length > 0) {
+          this.updateSkeletonFromInput(msg.id, msg.input);
+        }
+      }
+
       this.showThinkingIndicator();
     }
   }
 
   private handleToolResult(msg: StreamToolResultMessage, assistantMsg: ChatMessage): void {
-    const { state } = this.deps;
+    const { state, doc } = this.deps;
+
+    // Check if this is a sync subagent result (Agent/Task tool_result)
+    const subagentState = this.syncSubagentStates.get(msg.id);
+    if (subagentState) {
+      const isError = msg.isError || false;
+      finalizeSubagentBlock(subagentState, msg.content || (isError ? 'ERROR' : 'DONE'), isError);
+
+      // Update the tool call in the message
+      const existingToolCall = assistantMsg.toolCalls?.find(tc => tc.id === msg.id);
+      if (existingToolCall) {
+        existingToolCall.status = isError ? 'error' : 'completed';
+        existingToolCall.result = msg.content;
+        if (existingToolCall.subagent) {
+          existingToolCall.subagent.status = isError ? 'error' : 'completed';
+          existingToolCall.subagent.result = msg.content;
+        }
+      }
+
+      this.syncSubagentStates.delete(msg.id);
+      this.showThinkingIndicator();
+      return;
+    }
 
     const existingToolCall = assistantMsg.toolCalls?.find(tc => tc.id === msg.id);
     if (existingToolCall) {
+      const isBlocked = isBlockedToolResult(msg.content, msg.isError);
+
       if (msg.isError) {
         existingToolCall.status = 'error';
+      } else if (isBlocked) {
+        existingToolCall.status = 'blocked';
       } else {
         existingToolCall.status = 'completed';
       }
       existingToolCall.result = msg.content;
 
-      // Update the rendered element
-      const toolEl = state.toolCallElements.get(msg.id);
-      if (toolEl) {
-        const statusEl = toolEl.querySelector('.claudian-tool-status') as HTMLElement | null;
-        if (statusEl) {
-          statusEl.textContent = existingToolCall.status;
-          toolEl.classList.remove('claudian-tool--running');
-          toolEl.classList.add(
-            existingToolCall.status === 'completed'
-              ? 'claudian-tool--completed'
-              : 'claudian-tool--error'
-          );
-        }
-        // Update icon
-        const iconEl = toolEl.querySelector('.claudian-tool-icon') as HTMLElement | null;
-        if (iconEl) {
-          if (existingToolCall.status === 'completed') {
-            setIcon(iconEl, 'check');
-          } else {
-            setIcon(iconEl, 'x');
-          }
-        }
+      // Update the rendered tool call element via ToolCallRenderer
+      updateToolCallResult(doc, msg.id, existingToolCall, state.toolCallElements);
+
+      // Remove skeleton placeholder before rendering the final D&D entity block
+      const skeletonState = this.activeSkeletons.get(msg.id);
+      if (skeletonState) {
+        skeletonState.skeleton.el.remove();
+        this.activeSkeletons.delete(msg.id);
+      }
+
+      // Render D&D entity block as a sibling after the tool call element
+      if (state.currentContentEl) {
+        renderDndEntityAfterToolCall(doc, state.currentContentEl, existingToolCall);
       }
     }
 
     this.showThinkingIndicator();
   }
 
-  /**
-   * Renders a tool call element in the DOM.
-   */
-  private renderToolCall(
-    doc: Document,
-    parentEl: HTMLElement,
-    toolCall: ToolCallInfo
-  ): HTMLElement {
-    const toolEl = doc.createElement('div');
-    toolEl.className = 'claudian-tool claudian-tool--running';
+  // ============================================
+  // Subagent Chunk Routing
+  // ============================================
 
-    const headerEl = doc.createElement('div');
-    headerEl.className = 'claudian-tool-header';
+  /**
+   * Routes a stream chunk tagged with `parentToolUseId` to the correct sync subagent.
+   * When a child chunk arrives for a known subagent, we update the subagent's tool list
+   * or finalize tool results within it.
+   */
+  private async handleSubagentChunk(msg: ServerMessage, assistantMsg: ChatMessage): Promise<void> {
+    if (!('parentToolUseId' in msg) || !(msg as any).parentToolUseId) return;
+    const parentToolUseId = (msg as any).parentToolUseId as string;
+    const { doc } = this.deps;
+
+    const subagentState = this.syncSubagentStates.get(parentToolUseId);
+    if (!subagentState) return;
+
+    switch (msg.type) {
+      case 'stream.tool_use': {
+        const toolCall: ToolCallInfo = {
+          id: msg.id,
+          name: msg.name,
+          input: msg.input,
+          status: 'running',
+          isExpanded: false,
+        };
+        addSubagentToolCall(doc, subagentState, toolCall);
+        this.showThinkingIndicator();
+        break;
+      }
+
+      case 'stream.tool_result': {
+        const toolCall = subagentState.info.toolCalls.find(
+          (tc: ToolCallInfo) => tc.id === msg.id
+        );
+        if (toolCall) {
+          const isBlocked = isBlockedToolResult(msg.content, msg.isError);
+          toolCall.status = isBlocked ? 'blocked' : (msg.isError ? 'error' : 'completed');
+          toolCall.result = msg.content;
+          updateSubagentToolResult(doc, subagentState, msg.id, toolCall);
+        }
+        break;
+      }
+
+      case 'stream.text':
+      case 'stream.thinking':
+        // Text/thinking from subagents is not rendered inline (handled by subagent result)
+        break;
+    }
+  }
+
+  // ============================================
+  // D&D Skeleton Streaming
+  // ============================================
+
+  /**
+   * Updates an active skeleton placeholder with entity data extracted from tool input.
+   * The tool input for D&D generation tools typically wraps entity data under a
+   * `monster`, `spell`, or `item` key.
+   */
+  private updateSkeletonFromInput(toolId: string, input: Record<string, unknown>): void {
+    const skeletonState = this.activeSkeletons.get(toolId);
+    if (!skeletonState) return;
+
+    // Entity data is nested under the entity type key (e.g., input.monster, input.spell, input.item)
+    const entityData = (input.monster || input.spell || input.item) as Record<string, unknown> | undefined;
+    if (entityData && typeof entityData === 'object') {
+      skeletonState.lastValidParse = entityData;
+      skeletonState.skeleton.updateFromPartial(entityData);
+    }
+  }
+
+  // ============================================
+  // Blocked Content Rendering
+  // ============================================
+
+  /**
+   * Renders blocked content as an inline warning message in the chat.
+   */
+  private renderBlockedContent(content: string): void {
+    const { state, doc } = this.deps;
+    if (!state.currentContentEl) return;
+
+    this.hideThinkingIndicator();
+
+    const blockedEl = doc.createElement('div');
+    blockedEl.className = 'claudian-blocked-message';
 
     const iconEl = doc.createElement('span');
-    iconEl.className = 'claudian-tool-icon';
-    setIcon(iconEl, 'terminal');
-    headerEl.appendChild(iconEl);
+    iconEl.className = 'claudian-blocked-icon';
+    setIcon(iconEl, 'shield-off');
+    blockedEl.appendChild(iconEl);
 
-    const nameEl = doc.createElement('span');
-    nameEl.className = 'claudian-tool-name';
-    nameEl.textContent = toolCall.name;
-    headerEl.appendChild(nameEl);
+    const textEl = doc.createElement('span');
+    textEl.className = 'claudian-blocked-text';
+    textEl.textContent = `Blocked: ${content}`;
+    blockedEl.appendChild(textEl);
 
-    const statusEl = doc.createElement('span');
-    statusEl.className = 'claudian-tool-status';
-    statusEl.textContent = 'running';
-    headerEl.appendChild(statusEl);
-
-    toolEl.appendChild(headerEl);
-    parentEl.appendChild(toolEl);
-
-    return toolEl;
+    state.currentContentEl.appendChild(blockedEl);
   }
 
   // ============================================
@@ -590,5 +758,8 @@ export class StreamController {
     state.currentThinkingState = null;
     // Reset response timer (duration already captured at this point)
     state.responseStartTime = null;
+    // Clean up active skeletons and subagent states
+    this.activeSkeletons.clear();
+    this.syncSubagentStates.clear();
   }
 }
