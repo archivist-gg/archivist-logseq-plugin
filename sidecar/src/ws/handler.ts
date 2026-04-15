@@ -256,7 +256,7 @@ async function handleQuery(
 
     const generator = claudian.query(
       message.text,
-      undefined, // images (handled separately if needed)
+      message.images, // forward attached images from client
       undefined, // conversationHistory (managed by persistent query)
       { mcpMentions: new Set<string>() },
     );

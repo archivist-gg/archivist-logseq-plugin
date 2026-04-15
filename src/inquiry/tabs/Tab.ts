@@ -334,6 +334,9 @@ export function initializeTabUI(
     ...state.callbacks,
     onUsageChanged: (usage) => tab.ui.contextUsageMeter?.update(usage),
     onTodosChanged: (todos) => tab.ui.statusPanel?.updateTodos(todos),
+    onMessagesChanged: () => {
+      tab.controllers.conversationController?.updateWelcomeVisibility();
+    },
   };
 }
 
