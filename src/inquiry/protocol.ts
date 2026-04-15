@@ -99,6 +99,12 @@ export interface SessionRenameMessage extends ClientMessageBase {
   title: string;
 }
 
+export interface TitleGenerateMessage extends ClientMessageBase {
+  type: 'title.generate';
+  conversationId: string;
+  userMessage: string;
+}
+
 export interface SettingsGetMessage extends ClientMessageBase {
   type: 'settings.get';
 }
@@ -176,6 +182,7 @@ export type ClientMessage =
   | SessionForkMessage
   | SessionRewindMessage
   | SessionRenameMessage
+  | TitleGenerateMessage
   | SettingsGetMessage
   | SettingsUpdateMessage
   | McpListMessage
@@ -359,6 +366,14 @@ export interface InstructionRefineResultMessage extends ServerMessageBase {
   error?: string;
 }
 
+export interface TitleResultMessage extends ServerMessageBase {
+  type: 'title.result';
+  conversationId: string;
+  success: boolean;
+  title?: string;
+  error?: string;
+}
+
 export type ServerMessage =
   | StreamTextMessage
   | StreamThinkingMessage
@@ -385,4 +400,5 @@ export type ServerMessage =
   | NotificationMessage
   | ConnectionReadyMessage
   | BashResultMessage
-  | InstructionRefineResultMessage;
+  | InstructionRefineResultMessage
+  | TitleResultMessage;

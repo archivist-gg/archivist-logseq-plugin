@@ -304,6 +304,10 @@ export class SidecarClient {
     this.send({ type: "instruction.refine", tabId, instruction, existingInstructions });
   }
 
+  sendTitleGenerate(tabId: string, conversationId: string, userMessage: string): void {
+    this.send({ type: "title.generate", tabId, conversationId, userMessage });
+  }
+
   // ── HTTP fetch methods ──────────────────────────────────
 
   async fetchSettings(): Promise<Record<string, unknown>> {
@@ -320,6 +324,20 @@ export class SidecarClient {
     Array<{ name: string; description: string }>
   > {
     return this.httpGet("/commands");
+  }
+
+  async fetchTabState(): Promise<{
+    openTabs: Array<{ tabId: string; conversationId: string | null }>;
+    activeTabId: string | null;
+  } | null> {
+    return this.httpGet("/tabs/state");
+  }
+
+  async saveTabState(state: {
+    openTabs: Array<{ tabId: string; conversationId: string | null }>;
+    activeTabId: string | null;
+  }): Promise<void> {
+    await this.httpPost("/tabs/state", state);
   }
 
   // ── Private methods ─────────────────────────────────────
@@ -404,6 +422,18 @@ export class SidecarClient {
       throw new Error("Not connected to sidecar");
     }
     const res = await fetch(`http://localhost:${this.port}${path}`);
+    return res.json() as Promise<T>;
+  }
+
+  private async httpPost<T>(path: string, body: unknown): Promise<T> {
+    if (this.port === null || this.state === "disconnected") {
+      throw new Error("Not connected to sidecar");
+    }
+    const res = await fetch(`http://localhost:${this.port}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     return res.json() as Promise<T>;
   }
 }

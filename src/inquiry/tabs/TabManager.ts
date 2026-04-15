@@ -365,6 +365,34 @@ export class TabManager implements TabManagerInterface {
     };
   }
 
+  /** Saves tab state to sidecar via HTTP POST /tabs/state. */
+  async saveTabState(): Promise<void> {
+    try {
+      const state = this.getPersistedState();
+      await this.client.saveTabState(state);
+    } catch {
+      // Silently ignore save errors (sidecar may be unreachable)
+    }
+  }
+
+  /** Restores tab state from sidecar via HTTP GET /tabs/state. */
+  async restoreTabState(): Promise<void> {
+    try {
+      const state = await this.client.fetchTabState();
+      if (state && state.openTabs && state.openTabs.length > 0) {
+        await this.restoreState(state);
+      } else {
+        // No persisted state — create a default tab
+        await this.createTab();
+      }
+    } catch {
+      // Sidecar unreachable or invalid state — create a default tab
+      if (this.tabs.size === 0) {
+        await this.createTab();
+      }
+    }
+  }
+
   /** Restores state from persisted data. */
   async restoreState(state: PersistedTabManagerState): Promise<void> {
     for (const tabState of state.openTabs) {

@@ -90,6 +90,35 @@ export function createServer(
     }
   });
 
+  // ── Tab state persistence ──────────────────────────────
+
+  const TABS_STATE_PATH = '.archivist/tabs.json';
+
+  app.get('/tabs/state', async (_req, res) => {
+    try {
+      const adapter = services.storage.getAdapter();
+      if (await adapter.exists(TABS_STATE_PATH)) {
+        const content = await adapter.read(TABS_STATE_PATH);
+        const state = JSON.parse(content);
+        res.json(state);
+      } else {
+        res.json(null);
+      }
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to load tab state' });
+    }
+  });
+
+  app.post('/tabs/state', async (req, res) => {
+    try {
+      const adapter = services.storage.getAdapter();
+      await adapter.write(TABS_STATE_PATH, JSON.stringify(req.body, null, 2));
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to save tab state' });
+    }
+  });
+
   // ── HTTP + WebSocket server ─────────────────────────────
 
   const server = createHttpServer(app);

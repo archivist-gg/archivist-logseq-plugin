@@ -7,6 +7,8 @@
  */
 
 import type { WebSocket } from 'ws';
+import type { Options } from '@anthropic-ai/claude-agent-sdk';
+import { query as agentQuery } from '@anthropic-ai/claude-agent-sdk';
 
 import type {
   ClientMessage,
@@ -18,6 +20,8 @@ import type { SidecarServices } from '../services.js';
 import type { StreamChunk, ExitPlanModeDecision, ClaudianMcpServer } from '../core/types/index.js';
 import type { ClaudianSettings } from '../core/types/settings.js';
 import type { PlanDecision } from '../services.js';
+import { TITLE_GENERATION_SYSTEM_PROMPT } from '../core/prompts/titleGeneration.js';
+import { createCustomSpawnFunction } from '../core/agent/customSpawn.js';
 
 /** Map a StreamChunk from the agent SDK to a ServerMessage for the plugin. */
 function chunkToMessage(chunk: StreamChunk): ServerMessage | null {
@@ -201,6 +205,29 @@ async function routeMessage(
         });
         break;
       }
+
+      case 'session.rename': {
+        // Update conversation title in storage
+        const conv = await services.storage.sessions.loadConversation(message.sessionId);
+        if (conv) {
+          conv.title = message.title;
+          conv.updatedAt = Date.now();
+          await services.storage.sessions.saveConversation(conv);
+        } else {
+          // Try native metadata
+          const meta = await services.storage.sessions.loadMetadata(message.sessionId);
+          if (meta) {
+            meta.title = message.title;
+            meta.updatedAt = Date.now();
+            await services.storage.sessions.saveMetadata(meta);
+          }
+        }
+        break;
+      }
+
+      case 'title.generate':
+        void handleTitleGenerate(ws, message, services);
+        break;
 
       case 'settings.get': {
         const settings = services.getSettings();
@@ -418,6 +445,124 @@ function planDecisionToExitDecision(decision: PlanDecision): ExitPlanModeDecisio
       return { type: 'approve-new-session', planContent: decision.planContent };
     case 'feedback':
       return { type: 'feedback', text: decision.text };
+  }
+}
+
+/**
+ * Handle title generation using Haiku model.
+ *
+ * Uses the Claude Agent SDK with a small, fast model (haiku) to generate
+ * a concise conversation title from the user's first message.
+ */
+async function handleTitleGenerate(
+  ws: WebSocket,
+  message: { tabId: string; conversationId: string; userMessage: string },
+  services: SidecarServices,
+): Promise<void> {
+  const tabId = message.tabId;
+  const { conversationId, userMessage } = message;
+
+  try {
+    const settings = services.getSettings();
+
+    // Resolve CLI path (same logic as services.ts)
+    const os = await import('node:os');
+    const hostname = os.hostname();
+    const cliPath = settings.claudeCliPathsByHost[hostname]
+      || settings.claudeCliPath
+      || 'claude';
+
+    // Get the appropriate model with fallback chain
+    const titleModel = settings.titleGenerationModel || 'claude-haiku-4-5';
+
+    // Parse environment variables for PATH enhancement
+    const { parseEnvironmentVariables, getEnhancedPath } = await import('../core/utils/env.js');
+    const envVars = parseEnvironmentVariables(settings.environmentVariables ?? '');
+    const enhancedPath = getEnhancedPath(envVars.PATH, cliPath);
+
+    // Truncate message to save tokens
+    const truncated = userMessage.length > 500
+      ? userMessage.substring(0, 500) + '...'
+      : userMessage;
+
+    const prompt = `User's request:\n"""\n${truncated}\n"""\n\nGenerate a title for this conversation:`;
+
+    const options: Options = {
+      cwd: services.graphRoot,
+      systemPrompt: TITLE_GENERATION_SYSTEM_PROMPT,
+      model: titleModel,
+      pathToClaudeCodeExecutable: cliPath,
+      env: {
+        ...process.env,
+        ...envVars,
+        PATH: enhancedPath,
+      },
+      tools: [],
+      permissionMode: 'bypassPermissions',
+      allowDangerouslySkipPermissions: true,
+      persistSession: false,
+      spawnClaudeCodeProcess: createCustomSpawnFunction(cliPath),
+    };
+
+    const response = agentQuery({ prompt, options });
+    let responseText = '';
+
+    for await (const msg of response) {
+      if (msg.type === 'assistant' && msg.message?.content) {
+        for (const block of msg.message.content) {
+          if (block.type === 'text' && block.text) {
+            responseText += block.text;
+          }
+        }
+      }
+    }
+
+    // Parse and clean the title
+    let title = responseText.trim();
+    if (!title) {
+      send(ws, {
+        type: 'title.result',
+        tabId,
+        conversationId,
+        success: false,
+        error: 'Empty response from title generation',
+      });
+      return;
+    }
+
+    // Remove surrounding quotes
+    if (
+      (title.startsWith('"') && title.endsWith('"')) ||
+      (title.startsWith("'") && title.endsWith("'"))
+    ) {
+      title = title.slice(1, -1);
+    }
+
+    // Remove trailing punctuation
+    title = title.replace(/[.!?:;,]+$/, '');
+
+    // Truncate to max 50 characters
+    if (title.length > 50) {
+      title = title.substring(0, 47) + '...';
+    }
+
+    send(ws, {
+      type: 'title.result',
+      tabId,
+      conversationId,
+      success: true,
+      title,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Title generation failed';
+    console.error(`[ws] title generation error:`, errorMessage);
+    send(ws, {
+      type: 'title.result',
+      tabId,
+      conversationId,
+      success: false,
+      error: errorMessage,
+    });
   }
 }
 
