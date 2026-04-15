@@ -88,7 +88,7 @@ export class ChatView {
 
   // Settings cache (from sidecar)
   private cachedSettings: ToolbarSettings = {
-    model: 'claude-sonnet-4-20250514',
+    model: 'opus',
     effortLevel: 'high',
   };
 

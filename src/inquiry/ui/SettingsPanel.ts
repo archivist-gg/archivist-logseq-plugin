@@ -147,8 +147,10 @@ export class SettingsPanel {
     select.className = 'claudian-settings-select';
 
     const models = [
-      { value: 'claude-sonnet-4-20250514', label: 'Sonnet 4' },
-      { value: 'claude-opus-4-20250514', label: 'Opus 4' },
+      { value: 'haiku', label: 'Haiku' },
+      { value: 'sonnet', label: 'Sonnet' },
+      { value: 'opus', label: 'Opus' },
+      { value: 'opus[1m]', label: 'Opus (1M)' },
     ];
 
     for (const model of models) {

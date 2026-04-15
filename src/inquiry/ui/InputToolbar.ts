@@ -33,8 +33,10 @@ export interface EffortOption {
 }
 
 const DEFAULT_MODELS: ModelOption[] = [
-  { value: 'claude-sonnet-4-20250514', label: 'Sonnet 4', description: 'Fast, smart' },
-  { value: 'claude-opus-4-20250514', label: 'Opus 4', description: 'Smartest' },
+  { value: 'haiku', label: 'Haiku', description: 'Fast and efficient' },
+  { value: 'sonnet', label: 'Sonnet', description: 'Balanced performance' },
+  { value: 'opus', label: 'Opus', description: 'Most capable' },
+  { value: 'opus[1m]', label: 'Opus (1M)', description: 'Most capable (1M context)' },
 ];
 
 const EFFORT_LEVELS: EffortOption[] = [
@@ -43,9 +45,9 @@ const EFFORT_LEVELS: EffortOption[] = [
   { value: 'high', label: 'High' },
 ];
 
-function isAdaptiveThinkingModel(_model: string): boolean {
-  // All Claude 3.5+ models support adaptive thinking
-  return true;
+function isAdaptiveThinkingModel(model: string): boolean {
+  const shortNames = ['haiku', 'sonnet', 'sonnet[1m]', 'opus', 'opus[1m]'];
+  return shortNames.includes(model) || /claude-(haiku|sonnet|opus)-/.test(model);
 }
 
 // ── Toolbar Settings / Callbacks ──
