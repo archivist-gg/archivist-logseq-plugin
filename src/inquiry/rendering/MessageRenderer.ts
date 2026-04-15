@@ -12,6 +12,7 @@ import {
 import { renderStoredWriteEdit } from './WriteEditRenderer';
 import { renderStoredSubagent, renderStoredAsyncSubagent } from './SubagentRenderer';
 import { renderStoredThinkingBlock } from './ThinkingBlockRenderer';
+import { createOwlIcon } from '../shared/owl-icon';
 
 export type RenderContentFn = (el: HTMLElement, markdown: string) => Promise<void>;
 
@@ -171,6 +172,8 @@ export class MessageRenderer {
     const welcomeEl = this.doc.createElement('div');
     welcomeEl.className = 'claudian-welcome';
     this.messagesEl.appendChild(welcomeEl);
+
+    welcomeEl.appendChild(createOwlIcon(48));
 
     const greetingEl = this.doc.createElement('div');
     greetingEl.className = 'claudian-welcome-greeting';

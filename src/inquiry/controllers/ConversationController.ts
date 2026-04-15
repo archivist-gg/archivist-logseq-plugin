@@ -16,6 +16,7 @@ import type { TitleGenerationService } from '../services/TitleGenerationService'
 import type { ChatState } from '../state/ChatState';
 import type { Conversation, ConversationMeta } from '../state/types';
 import { setIcon } from '../shared/icons';
+import { createOwlIcon } from '../shared/owl-icon';
 
 export interface ConversationCallbacks {
   onNewConversation?: () => void;
@@ -41,6 +42,9 @@ export interface ConversationControllerDeps {
 export class ConversationController {
   private deps: ConversationControllerDeps;
   private callbacks: ConversationCallbacks;
+
+  /** User name for personalized greetings (set via settings sync). */
+  userName: string | undefined;
 
   /** Locally cached conversation list (populated via WebSocket session.list_result). */
   private conversationList: ConversationMeta[] = [];
@@ -117,6 +121,8 @@ export class ConversationController {
       const welcomeEl = doc.createElement('div');
       welcomeEl.className = 'claudian-welcome';
 
+      welcomeEl.appendChild(createOwlIcon(48));
+
       const greetingEl = doc.createElement('div');
       greetingEl.className = 'claudian-welcome-greeting';
       greetingEl.textContent = this.getGreeting();
@@ -162,6 +168,8 @@ export class ConversationController {
 
       const welcomeEl = doc.createElement('div');
       welcomeEl.className = 'claudian-welcome';
+
+      welcomeEl.appendChild(createOwlIcon(48));
 
       const greetingEl = doc.createElement('div');
       greetingEl.className = 'claudian-welcome-greeting';
@@ -257,6 +265,7 @@ export class ConversationController {
       if (state.messages.length === 0) {
         const welcomeEl = doc.createElement('div');
         welcomeEl.className = 'claudian-welcome';
+        welcomeEl.appendChild(createOwlIcon(48));
         const greetingEl = doc.createElement('div');
         greetingEl.className = 'claudian-welcome-greeting';
         greetingEl.textContent = this.getGreeting();
@@ -525,12 +534,14 @@ export class ConversationController {
   getGreeting(): string {
     const now = new Date();
     const hour = now.getHours();
-    const day = now.getDay();
+    const day = now.getDay(); // 0 = Sunday, 6 = Saturday
+    const name = this.userName?.trim();
 
+    // Helper to optionally personalize a greeting (with fallback for no-name case)
     const personalize = (base: string, noNameFallback?: string): string =>
-      noNameFallback ?? base;
+      name ? `${base}, ${name}` : (noNameFallback ?? base);
 
-    // Day-specific greetings
+    // Day-specific greetings (some personalized, some universal)
     const dayGreetings: Record<number, string[]> = {
       0: [personalize('Happy Sunday'), 'Sunday session?', 'Welcome to the weekend'],
       1: [personalize('Happy Monday'), personalize('Back at it', 'Back at it!')],
@@ -557,13 +568,15 @@ export class ConversationController {
     // General greetings
     const generalGreetings = [
       personalize('Hey there'),
-      'Hi, how are you?',
+      name ? `Hi ${name}, how are you?` : 'Hi, how are you?',
       personalize("How's it going") + '?',
       personalize('Welcome back') + '!',
       personalize("What's new") + '?',
+      ...(name ? [`${name} returns!`] : []),
       'You are absolutely right!',
     ];
 
+    // Combine day + time + general greetings, pick randomly
     const allGreetings = [
       ...(dayGreetings[day] || []),
       ...getTimeGreetings(),
