@@ -263,16 +263,13 @@ export interface ApprovalRequestMessage extends ServerMessageBase {
 export interface PlanModeRequestMessage extends ServerMessageBase {
   type: 'plan_mode.request';
   toolCallId: string;
-  plan: Record<string, unknown>;
+  input: Record<string, unknown>;
 }
 
 export interface AskUserQuestionMessage extends ServerMessageBase {
   type: 'askuser.question';
   toolCallId: string;
-  question: string;
-  header: string;
-  options: Array<{ label: string; description: string }>;
-  multiSelect: boolean;
+  input: Record<string, unknown>;
 }
 
 export interface SessionLoadedMessage extends ServerMessageBase {

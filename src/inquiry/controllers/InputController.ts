@@ -9,7 +9,12 @@
  */
 
 import type { SidecarClient } from '../SidecarClient';
-import type { ServerMessage } from '../protocol';
+import type {
+  ServerMessage,
+  ApprovalRequestMessage,
+  AskUserQuestionMessage,
+  PlanModeRequestMessage,
+} from '../protocol';
 import type { ChatState } from '../state/ChatState';
 import type { ChatMessage } from '../state/types';
 import type { StreamController } from './StreamController';
@@ -32,6 +37,7 @@ export interface InputControllerDeps {
   client: SidecarClient;
   doc: Document;
   state: ChatState;
+  tabId: string;
   streamController: StreamController;
   selectionController: SelectionController;
   conversationController: ConversationController;
@@ -47,6 +53,9 @@ export class InputController {
   private deps: InputControllerDeps;
   private unsubscribeMessage: (() => void) | null = null;
   private currentAssistantMsg: ChatMessage | null = null;
+
+  /** Currently mounted inline approval/askuser/planmode element, if any. */
+  private activeInlineEl: HTMLElement | null = null;
 
   constructor(deps: InputControllerDeps) {
     this.deps = deps;
@@ -203,22 +212,22 @@ export class InputController {
 
       // Approval requests
       if (msg.type === 'approval.request') {
-        // TODO: Wire approval UI
+        this.handleApprovalRequest(msg as ApprovalRequestMessage);
       }
 
       // Ask user question
       if (msg.type === 'askuser.question') {
-        // TODO: Wire ask user UI
+        this.handleAskUserQuestion(msg as AskUserQuestionMessage);
       }
 
       // Plan mode
       if (msg.type === 'plan_mode.request') {
-        // TODO: Wire plan mode UI
+        this.handleExitPlanMode(msg as PlanModeRequestMessage);
       }
     });
 
     // Send the query via WebSocket
-    client.sendQuery(promptToSend, {
+    client.sendQuery(this.deps.tabId, promptToSend, {
       editorSelection: editorContext?.selectedText,
       sessionId: state.currentConversationId ?? undefined,
     });
@@ -403,7 +412,7 @@ export class InputController {
       this.updateQueueIndicator();
     }
 
-    client.sendInterrupt();
+    client.sendInterrupt(this.deps.tabId);
     streamController.hideThinkingIndicator();
   }
 
@@ -412,15 +421,267 @@ export class InputController {
   // ============================================
 
   approveToolCall(toolCallId: string): void {
-    this.deps.client.sendApprove(toolCallId);
+    this.deps.client.sendApprove(this.deps.tabId, toolCallId);
   }
 
   denyToolCall(toolCallId: string): void {
-    this.deps.client.sendDeny(toolCallId);
+    this.deps.client.sendDeny(this.deps.tabId, toolCallId);
   }
 
   allowAlwaysToolCall(toolCallId: string, pattern: string): void {
-    this.deps.client.sendAllowAlways(toolCallId, pattern);
+    this.deps.client.sendAllowAlways(this.deps.tabId, toolCallId, pattern);
+  }
+
+  /**
+   * Handle an approval.request from the sidecar.
+   * Renders an inline approve/deny/allow-always button row in the input area.
+   */
+  handleApprovalRequest(msg: ApprovalRequestMessage): void {
+    const { doc, client, state } = this.deps;
+    const tabId = this.deps.tabId;
+    const { toolCallId, name: toolName, description } = msg;
+
+    state.needsAttention = true;
+
+    const container = doc.createElement('div');
+    container.className = 'claudian-inline-approval';
+
+    // Label
+    const label = doc.createElement('div');
+    label.className = 'claudian-inline-approval-label';
+    label.textContent = description || `Allow ${toolName}?`;
+    container.appendChild(label);
+
+    // Button row
+    const btnRow = doc.createElement('div');
+    btnRow.className = 'claudian-inline-approval-buttons';
+
+    const resolve = (action: () => void) => {
+      action();
+      state.needsAttention = false;
+      this.dismissInlineEl();
+    };
+
+    const allowBtn = doc.createElement('button');
+    allowBtn.className = 'claudian-inline-btn claudian-inline-btn-approve';
+    allowBtn.textContent = 'Allow';
+    allowBtn.addEventListener('click', () =>
+      resolve(() => client.sendApprove(tabId, toolCallId))
+    );
+    btnRow.appendChild(allowBtn);
+
+    const denyBtn = doc.createElement('button');
+    denyBtn.className = 'claudian-inline-btn claudian-inline-btn-deny';
+    denyBtn.textContent = 'Deny';
+    denyBtn.addEventListener('click', () =>
+      resolve(() => client.sendDeny(tabId, toolCallId))
+    );
+    btnRow.appendChild(denyBtn);
+
+    const alwaysBtn = doc.createElement('button');
+    alwaysBtn.className = 'claudian-inline-btn claudian-inline-btn-always';
+    alwaysBtn.textContent = 'Always allow';
+    alwaysBtn.addEventListener('click', () =>
+      resolve(() => client.sendAllowAlways(tabId, toolCallId, toolName))
+    );
+    btnRow.appendChild(alwaysBtn);
+
+    container.appendChild(btnRow);
+    this.mountInlineEl(container);
+  }
+
+  /**
+   * Handle an askuser.question from the sidecar.
+   * Renders inline question fields in the input area.
+   */
+  handleAskUserQuestion(msg: AskUserQuestionMessage): void {
+    const { doc, client, state } = this.deps;
+    const tabId = this.deps.tabId;
+    const { toolCallId, input } = msg;
+
+    state.needsAttention = true;
+
+    const container = doc.createElement('div');
+    container.className = 'claudian-inline-askuser';
+
+    // Extract questions from input
+    const questions: Array<{ id: string; text: string }> = [];
+    if (input.questions && Array.isArray(input.questions)) {
+      for (const q of input.questions as Array<{ id?: string; text?: string }>) {
+        if (q.text) {
+          questions.push({ id: q.id ?? q.text, text: q.text });
+        }
+      }
+    } else if (input.question && typeof input.question === 'string') {
+      questions.push({ id: 'question', text: input.question as string });
+    }
+
+    if (questions.length === 0) {
+      questions.push({ id: 'question', text: 'The agent has a question for you.' });
+    }
+
+    const inputFields: Array<{ id: string; el: HTMLInputElement }> = [];
+
+    for (const q of questions) {
+      const row = doc.createElement('div');
+      row.className = 'claudian-inline-askuser-row';
+
+      const label = doc.createElement('label');
+      label.className = 'claudian-inline-askuser-label';
+      label.textContent = q.text;
+      row.appendChild(label);
+
+      const field = doc.createElement('input');
+      field.type = 'text';
+      field.className = 'claudian-inline-askuser-input';
+      field.placeholder = 'Type your answer...';
+      row.appendChild(field);
+
+      inputFields.push({ id: q.id, el: field });
+      container.appendChild(row);
+    }
+
+    // Button row
+    const btnRow = doc.createElement('div');
+    btnRow.className = 'claudian-inline-approval-buttons';
+
+    const submitBtn = doc.createElement('button');
+    submitBtn.className = 'claudian-inline-btn claudian-inline-btn-approve';
+    submitBtn.textContent = 'Submit';
+    submitBtn.addEventListener('click', () => {
+      const answers: Record<string, string> = {};
+      for (const f of inputFields) {
+        answers[f.id] = f.el.value;
+      }
+      client.sendAskUserAnswer(tabId, toolCallId, answers);
+      state.needsAttention = false;
+      this.dismissInlineEl();
+    });
+    btnRow.appendChild(submitBtn);
+
+    const dismissBtn = doc.createElement('button');
+    dismissBtn.className = 'claudian-inline-btn claudian-inline-btn-deny';
+    dismissBtn.textContent = 'Dismiss';
+    dismissBtn.addEventListener('click', () => {
+      client.sendAskUserDismiss(tabId, toolCallId);
+      state.needsAttention = false;
+      this.dismissInlineEl();
+    });
+    btnRow.appendChild(dismissBtn);
+
+    container.appendChild(btnRow);
+    this.mountInlineEl(container);
+
+    // Focus the first input field
+    if (inputFields.length > 0) {
+      inputFields[0].el.focus();
+    }
+  }
+
+  /**
+   * Handle a plan_mode.request from the sidecar.
+   * Renders an inline plan approval UI with approve / feedback / approve-new-session options.
+   */
+  handleExitPlanMode(msg: PlanModeRequestMessage): void {
+    const { doc, client, state } = this.deps;
+    const tabId = this.deps.tabId;
+    const { toolCallId, input } = msg;
+
+    state.needsAttention = true;
+
+    const container = doc.createElement('div');
+    container.className = 'claudian-inline-planmode';
+
+    // Label
+    const label = doc.createElement('div');
+    label.className = 'claudian-inline-approval-label';
+    label.textContent = 'The agent has a plan ready. How would you like to proceed?';
+    container.appendChild(label);
+
+    // Feedback input
+    const feedbackRow = doc.createElement('div');
+    feedbackRow.className = 'claudian-inline-askuser-row';
+    const feedbackInput = doc.createElement('input');
+    feedbackInput.type = 'text';
+    feedbackInput.className = 'claudian-inline-askuser-input';
+    feedbackInput.placeholder = 'Optional feedback...';
+    feedbackRow.appendChild(feedbackInput);
+    container.appendChild(feedbackRow);
+
+    // Button row
+    const btnRow = doc.createElement('div');
+    btnRow.className = 'claudian-inline-approval-buttons';
+
+    const approveBtn = doc.createElement('button');
+    approveBtn.className = 'claudian-inline-btn claudian-inline-btn-approve';
+    approveBtn.textContent = 'Approve';
+    approveBtn.addEventListener('click', () => {
+      client.sendPlanApprove(tabId, toolCallId);
+      state.needsAttention = false;
+      this.dismissInlineEl();
+    });
+    btnRow.appendChild(approveBtn);
+
+    const feedbackBtn = doc.createElement('button');
+    feedbackBtn.className = 'claudian-inline-btn claudian-inline-btn-always';
+    feedbackBtn.textContent = 'Send feedback';
+    feedbackBtn.addEventListener('click', () => {
+      const text = feedbackInput.value.trim();
+      if (!text) return;
+      client.sendPlanFeedback(tabId, toolCallId, text);
+      state.needsAttention = false;
+      this.dismissInlineEl();
+    });
+    btnRow.appendChild(feedbackBtn);
+
+    // Extract plan content for "approve as new session"
+    const planContent =
+      typeof input.plan === 'string' ? (input.plan as string) : '';
+
+    const newSessionBtn = doc.createElement('button');
+    newSessionBtn.className = 'claudian-inline-btn claudian-inline-btn-deny';
+    newSessionBtn.textContent = 'New session';
+    newSessionBtn.addEventListener('click', () => {
+      client.sendPlanApproveNewSession(tabId, toolCallId, planContent);
+      state.needsAttention = false;
+      this.dismissInlineEl();
+    });
+    btnRow.appendChild(newSessionBtn);
+
+    container.appendChild(btnRow);
+    this.mountInlineEl(container);
+  }
+
+  // ============================================
+  // Inline Element Management
+  // ============================================
+
+  /**
+   * Mount an inline element in the input container, hiding the normal input.
+   */
+  private mountInlineEl(el: HTMLElement): void {
+    this.dismissInlineEl();
+
+    const inputEl = this.deps.getInputEl();
+    inputEl.style.display = 'none';
+
+    const inputContainerEl = this.deps.getInputContainerEl();
+    inputContainerEl.appendChild(el);
+
+    this.activeInlineEl = el;
+  }
+
+  /**
+   * Remove the active inline element and restore normal input.
+   */
+  private dismissInlineEl(): void {
+    if (this.activeInlineEl) {
+      this.activeInlineEl.remove();
+      this.activeInlineEl = null;
+    }
+
+    const inputEl = this.deps.getInputEl();
+    inputEl.style.display = '';
   }
 
   // ============================================
@@ -432,5 +693,6 @@ export class InputController {
       this.unsubscribeMessage();
       this.unsubscribeMessage = null;
     }
+    this.dismissInlineEl();
   }
 }

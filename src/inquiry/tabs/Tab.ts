@@ -16,6 +16,11 @@
  */
 
 import type { SidecarClient } from '../SidecarClient';
+import type {
+  ApprovalRequestMessage,
+  AskUserQuestionMessage,
+  PlanModeRequestMessage,
+} from '../protocol';
 import {
   ConversationController,
   InputController,
@@ -411,6 +416,7 @@ export function initializeTabControllers(
     client,
     doc,
     state,
+    tabId: tab.id,
     streamController: tab.controllers.streamController,
     selectionController: tab.controllers.selectionController,
     conversationController: tab.controllers.conversationController,
@@ -423,6 +429,18 @@ export function initializeTabControllers(
       // Per-tab input height is managed by CSS
     },
   });
+
+  // Subscribe to tab-scoped approval/askuser/planmode messages
+  const unsubTabMessages = client.onTabMessage(tab.id, (msg) => {
+    if (msg.type === 'approval.request') {
+      tab.controllers.inputController?.handleApprovalRequest(msg as ApprovalRequestMessage);
+    } else if (msg.type === 'askuser.question') {
+      tab.controllers.inputController?.handleAskUserQuestion(msg as AskUserQuestionMessage);
+    } else if (msg.type === 'plan_mode.request') {
+      tab.controllers.inputController?.handleExitPlanMode(msg as PlanModeRequestMessage);
+    }
+  });
+  dom.eventCleanups.push(unsubTabMessages);
 
   // Navigation controller
   tab.controllers.navigationController = new NavigationController({

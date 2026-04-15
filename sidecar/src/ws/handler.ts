@@ -15,7 +15,8 @@ import type {
   ConnectionReadyMessage,
 } from './protocol.js';
 import type { SidecarServices } from '../services.js';
-import type { StreamChunk } from '../core/types/index.js';
+import type { StreamChunk, ExitPlanModeDecision } from '../core/types/index.js';
+import type { PlanDecision } from '../services.js';
 
 /** Map a StreamChunk from the agent SDK to a ServerMessage for the plugin. */
 function chunkToMessage(chunk: StreamChunk): ServerMessage | null {
@@ -285,11 +286,51 @@ async function handleQuery(
 ): Promise<void> {
   try {
     const claudian = services.sessionRouter.getOrCreate(message.tabId);
+    const tabId = message.tabId;
 
     // If a sessionId is provided, ensure the query is ready with that session
     if (message.sessionId) {
       await claudian.ensureReady({ sessionId: message.sessionId });
     }
+
+    // Wire approval callback: forward to plugin via WebSocket, wait for response
+    claudian.setApprovalCallback(async (toolName, input, description) => {
+      const toolCallId = `approval-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      send(ws, {
+        type: 'approval.request',
+        tabId,
+        toolCallId,
+        name: toolName,
+        input,
+        description,
+      });
+      return services.pendingApprovals.create(toolCallId);
+    });
+
+    // Wire ask-user-question callback: forward to plugin via WebSocket, wait for response
+    claudian.setAskUserQuestionCallback(async (input) => {
+      const toolCallId = `askuser-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      send(ws, {
+        type: 'askuser.question',
+        tabId,
+        toolCallId,
+        input,
+      });
+      return services.pendingAskUser.create(toolCallId);
+    });
+
+    // Wire exit-plan-mode callback: forward to plugin via WebSocket, wait for response
+    claudian.setExitPlanModeCallback(async (input) => {
+      const toolCallId = `planmode-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      send(ws, {
+        type: 'plan_mode.request',
+        tabId,
+        toolCallId,
+        input,
+      });
+      const decision: PlanDecision = await services.pendingPlanDecisions.create(toolCallId);
+      return planDecisionToExitDecision(decision);
+    });
 
     const generator = claudian.query(
       message.text,
@@ -301,7 +342,7 @@ async function handleQuery(
     for await (const chunk of generator) {
       const serverMessage = chunkToMessage(chunk);
       if (serverMessage) {
-        serverMessage.tabId = message.tabId;
+        serverMessage.tabId = tabId;
         send(ws, serverMessage);
       }
     }
@@ -309,5 +350,17 @@ async function handleQuery(
     const errorMessage = error instanceof Error ? error.message : 'Query failed';
     send(ws, { type: 'stream.error', message: errorMessage, tabId: message.tabId });
     send(ws, { type: 'stream.done', tabId: message.tabId });
+  }
+}
+
+/** Convert a PlanDecision (from WebSocket protocol) to an ExitPlanModeDecision (for SDK). */
+function planDecisionToExitDecision(decision: PlanDecision): ExitPlanModeDecision {
+  switch (decision.type) {
+    case 'approve':
+      return { type: 'approve' };
+    case 'approve_new_session':
+      return { type: 'approve-new-session', planContent: decision.planContent };
+    case 'feedback':
+      return { type: 'feedback', text: decision.text };
   }
 }
