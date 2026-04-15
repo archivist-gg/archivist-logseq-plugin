@@ -15,7 +15,8 @@ import type {
   ConnectionReadyMessage,
 } from './protocol.js';
 import type { SidecarServices } from '../services.js';
-import type { StreamChunk, ExitPlanModeDecision } from '../core/types/index.js';
+import type { StreamChunk, ExitPlanModeDecision, ClaudianMcpServer } from '../core/types/index.js';
+import type { ClaudianSettings } from '../core/types/settings.js';
 import type { PlanDecision } from '../services.js';
 
 /** Map a StreamChunk from the agent SDK to a ServerMessage for the plugin. */
@@ -211,21 +212,62 @@ async function routeMessage(
         break;
       }
 
-      case 'settings.update':
-        // Settings update will be wired in integration task
-        console.log('[ws] settings.update:', Object.keys(message.patch));
-        break;
+      case 'settings.update': {
+        const patch = message.patch as Partial<ClaudianSettings>;
+        const currentSettings = services.getSettings();
+        Object.assign(currentSettings, patch);
 
-      case 'mcp.list': {
-        const servers = services.mcp.getServers();
-        // Send as notification for now; full MCP list response in integration task
-        console.log(`[ws] mcp.list: ${servers.length} servers`);
+        // Strip slashCommands (loaded separately) before persisting
+        const { slashCommands: _, ...storable } = currentSettings;
+        await services.storage.saveClaudianSettings(storable);
+
+        send(ws, {
+          type: 'settings.current',
+          tabId,
+          claudian: currentSettings as unknown as Record<string, unknown>,
+          cc: {},
+        });
         break;
       }
 
-      case 'mcp.update':
-        console.log('[ws] mcp.update');
+      case 'mcp.list': {
+        const servers = services.mcp.getServers();
+        send(ws, {
+          type: 'mcp.list_result',
+          tabId,
+          servers: servers.map((s) => ({
+            name: s.name,
+            config: s.config as unknown as Record<string, unknown>,
+            enabled: s.enabled,
+            contextSaving: s.contextSaving,
+            disabledTools: s.disabledTools,
+            description: s.description,
+          })),
+        });
         break;
+      }
+
+      case 'mcp.update': {
+        const updatedServers = message.config as unknown as ClaudianMcpServer[];
+        if (Array.isArray(updatedServers)) {
+          await services.storage.mcp.save(updatedServers);
+          await services.mcp.loadServers();
+          const refreshed = services.mcp.getServers();
+          send(ws, {
+            type: 'mcp.list_result',
+            tabId,
+            servers: refreshed.map((s) => ({
+              name: s.name,
+              config: s.config as unknown as Record<string, unknown>,
+              enabled: s.enabled,
+              contextSaving: s.contextSaving,
+              disabledTools: s.disabledTools,
+              description: s.description,
+            })),
+          });
+        }
+        break;
+      }
 
       case 'command.list': {
         const commands = await services.storage.commands.loadAll();

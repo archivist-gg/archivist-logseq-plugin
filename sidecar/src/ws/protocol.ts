@@ -293,6 +293,18 @@ export interface SettingsCurrentMessage extends ServerMessageBase {
   cc: Record<string, unknown>;
 }
 
+export interface McpListResultMessage extends ServerMessageBase {
+  type: 'mcp.list_result';
+  servers: Array<{
+    name: string;
+    config: Record<string, unknown>;
+    enabled: boolean;
+    contextSaving: boolean;
+    disabledTools?: string[];
+    description?: string;
+  }>;
+}
+
 export interface CommandListResultMessage extends ServerMessageBase {
   type: 'command.list_result';
   commands: Array<{ name: string; description: string }>;
@@ -330,6 +342,7 @@ export type ServerMessage =
   | SessionLoadedMessage
   | SessionListResultMessage
   | SettingsCurrentMessage
+  | McpListResultMessage
   | CommandListResultMessage
   | NotificationMessage
   | ConnectionReadyMessage;
