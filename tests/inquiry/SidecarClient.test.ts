@@ -198,11 +198,13 @@ describe("SidecarClient", () => {
   // ── Sending messages ────────────────────────────────────
 
   describe("sending messages", () => {
+    const TAB = "tab-1";
+
     it("sends query message correctly", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendQuery("What is a beholder?", {
+      client.sendQuery(TAB, "What is a beholder?", {
         entityRefs: ["monster:beholder"],
         sessionId: "sess-1",
       });
@@ -211,6 +213,7 @@ describe("SidecarClient", () => {
       const msg = JSON.parse(ws.sent[0]) as ClientMessage;
       expect(msg).toEqual({
         type: "query",
+        tabId: TAB,
         text: "What is a beholder?",
         entityRefs: ["monster:beholder"],
         sessionId: "sess-1",
@@ -221,7 +224,7 @@ describe("SidecarClient", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendQuery("Describe this", {
+      client.sendQuery(TAB, "Describe this", {
         images: ["data:image/png;base64,abc"],
         filePaths: ["/path/to/file.md"],
         editorSelection: "selected text",
@@ -231,6 +234,7 @@ describe("SidecarClient", () => {
 
       const msg = JSON.parse(ws.sent[0]);
       expect(msg.type).toBe("query");
+      expect(msg.tabId).toBe(TAB);
       expect(msg.images).toEqual(["data:image/png;base64,abc"]);
       expect(msg.filePaths).toEqual(["/path/to/file.md"]);
       expect(msg.editorSelection).toBe("selected text");
@@ -240,41 +244,42 @@ describe("SidecarClient", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendInterrupt();
+      client.sendInterrupt(TAB);
 
       const msg = JSON.parse(ws.sent[0]);
-      expect(msg).toEqual({ type: "interrupt" });
+      expect(msg).toEqual({ type: "interrupt", tabId: TAB });
     });
 
     it("sends approve message", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendApprove("tool-123");
+      client.sendApprove(TAB, "tool-123");
 
       const msg = JSON.parse(ws.sent[0]);
-      expect(msg).toEqual({ type: "approve", toolCallId: "tool-123" });
+      expect(msg).toEqual({ type: "approve", tabId: TAB, toolCallId: "tool-123" });
     });
 
     it("sends deny message", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendDeny("tool-456");
+      client.sendDeny(TAB, "tool-456");
 
       const msg = JSON.parse(ws.sent[0]);
-      expect(msg).toEqual({ type: "deny", toolCallId: "tool-456" });
+      expect(msg).toEqual({ type: "deny", tabId: TAB, toolCallId: "tool-456" });
     });
 
     it("sends allow_always message", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendAllowAlways("tool-789", "file:read:*");
+      client.sendAllowAlways(TAB, "tool-789", "file:read:*");
 
       const msg = JSON.parse(ws.sent[0]);
       expect(msg).toEqual({
         type: "allow_always",
+        tabId: TAB,
         toolCallId: "tool-789",
         pattern: "file:read:*",
       });
@@ -284,31 +289,32 @@ describe("SidecarClient", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendSessionList();
+      client.sendSessionList(TAB);
 
       const msg = JSON.parse(ws.sent[0]);
-      expect(msg).toEqual({ type: "session.list" });
+      expect(msg).toEqual({ type: "session.list", tabId: TAB });
     });
 
     it("sends session.resume message", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendSessionResume("sess-abc");
+      client.sendSessionResume(TAB, "sess-abc");
 
       const msg = JSON.parse(ws.sent[0]);
-      expect(msg).toEqual({ type: "session.resume", sessionId: "sess-abc" });
+      expect(msg).toEqual({ type: "session.resume", tabId: TAB, sessionId: "sess-abc" });
     });
 
     it("sends session.fork message", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendSessionFork("sess-abc", 5);
+      client.sendSessionFork(TAB, "sess-abc", 5);
 
       const msg = JSON.parse(ws.sent[0]);
       expect(msg).toEqual({
         type: "session.fork",
+        tabId: TAB,
         sessionId: "sess-abc",
         messageIndex: 5,
       });
@@ -318,35 +324,87 @@ describe("SidecarClient", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendSessionRewind("sess-abc", 3);
+      client.sendSessionRewind(TAB, "sess-abc", 3);
 
       const msg = JSON.parse(ws.sent[0]);
       expect(msg).toEqual({
         type: "session.rewind",
+        tabId: TAB,
         sessionId: "sess-abc",
         messageIndex: 3,
       });
+    });
+
+    it("sends settings.get message", () => {
+      const client = createClient();
+      const ws = connectClient(client);
+
+      client.sendSettingsGet(TAB);
+
+      const msg = JSON.parse(ws.sent[0]);
+      expect(msg).toEqual({ type: "settings.get", tabId: TAB });
+    });
+
+    it("sends settings.update message", () => {
+      const client = createClient();
+      const ws = connectClient(client);
+
+      client.sendSettingsUpdate(TAB, { model: "opus" });
+
+      const msg = JSON.parse(ws.sent[0]);
+      expect(msg).toEqual({ type: "settings.update", tabId: TAB, patch: { model: "opus" } });
+    });
+
+    it("sends mcp.list message", () => {
+      const client = createClient();
+      const ws = connectClient(client);
+
+      client.sendMcpList(TAB);
+
+      const msg = JSON.parse(ws.sent[0]);
+      expect(msg).toEqual({ type: "mcp.list", tabId: TAB });
+    });
+
+    it("sends mcp.update message", () => {
+      const client = createClient();
+      const ws = connectClient(client);
+
+      client.sendMcpUpdate(TAB, { servers: [] });
+
+      const msg = JSON.parse(ws.sent[0]);
+      expect(msg).toEqual({ type: "mcp.update", tabId: TAB, config: { servers: [] } });
+    });
+
+    it("sends command.list message", () => {
+      const client = createClient();
+      const ws = connectClient(client);
+
+      client.sendCommandList(TAB);
+
+      const msg = JSON.parse(ws.sent[0]);
+      expect(msg).toEqual({ type: "command.list", tabId: TAB });
     });
 
     it("sends plan.approve message", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendPlanApprove("plan-1");
+      client.sendPlanApprove(TAB, "plan-1");
 
       const msg = JSON.parse(ws.sent[0]);
-      expect(msg).toEqual({ type: "plan.approve", toolCallId: "plan-1" });
+      expect(msg).toEqual({ type: "plan.approve", tabId: TAB, toolCallId: "plan-1" });
     });
 
     it("sends plan.approve_new_session message", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendPlanApproveNewSession("plan-2", "Build a wizard tower");
+      client.sendPlanApproveNewSession(TAB, "plan-2", "Build a wizard tower");
 
       const msg = JSON.parse(ws.sent[0]);
       expect(msg).toEqual({
         type: "plan.approve_new_session",
+        tabId: TAB,
         toolCallId: "plan-2",
         planContent: "Build a wizard tower",
       });
@@ -356,11 +414,12 @@ describe("SidecarClient", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendPlanFeedback("plan-3", "Add more traps");
+      client.sendPlanFeedback(TAB, "plan-3", "Add more traps");
 
       const msg = JSON.parse(ws.sent[0]);
       expect(msg).toEqual({
         type: "plan.feedback",
+        tabId: TAB,
         toolCallId: "plan-3",
         text: "Add more traps",
       });
@@ -370,11 +429,12 @@ describe("SidecarClient", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendAskUserAnswer("ask-1", { choice: "yes" });
+      client.sendAskUserAnswer(TAB, "ask-1", { choice: "yes" });
 
       const msg = JSON.parse(ws.sent[0]);
       expect(msg).toEqual({
         type: "askuser.answer",
+        tabId: TAB,
         toolCallId: "ask-1",
         answers: { choice: "yes" },
       });
@@ -384,16 +444,26 @@ describe("SidecarClient", () => {
       const client = createClient();
       const ws = connectClient(client);
 
-      client.sendAskUserDismiss("ask-2");
+      client.sendAskUserDismiss(TAB, "ask-2");
 
       const msg = JSON.parse(ws.sent[0]);
-      expect(msg).toEqual({ type: "askuser.dismiss", toolCallId: "ask-2" });
+      expect(msg).toEqual({ type: "askuser.dismiss", tabId: TAB, toolCallId: "ask-2" });
+    });
+
+    it("sends tab.destroy message", () => {
+      const client = createClient();
+      const ws = connectClient(client);
+
+      client.sendTabDestroy(TAB);
+
+      const msg = JSON.parse(ws.sent[0]);
+      expect(msg).toEqual({ type: "tab.destroy", tabId: TAB });
     });
 
     it("silently drops messages when not connected", () => {
       const client = createClient();
       // No connection established — should not throw
-      expect(() => client.sendInterrupt()).not.toThrow();
+      expect(() => client.sendInterrupt(TAB)).not.toThrow();
     });
   });
 
@@ -465,6 +535,61 @@ describe("SidecarClient", () => {
 
       // Got connection.ready before unsub, but not the stream.text after
       expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── Tab-filtered message subscription ───────────────────
+
+  describe("onTabMessage", () => {
+    it("delivers messages matching the tab id", () => {
+      const client = createClient();
+      const messages: ServerMessage[] = [];
+      client.onTabMessage("tab-A", (msg) => messages.push(msg));
+
+      const ws = connectClient(client);
+      ws.simulateMessage({ type: "stream.text", text: "hello", tabId: "tab-A" } as any);
+
+      // connection.ready (no tabId, so delivered) + stream.text (matching tabId)
+      expect(messages).toHaveLength(2);
+      expect(messages[1]).toMatchObject({ type: "stream.text", text: "hello" });
+    });
+
+    it("delivers messages without a tabId (broadcast)", () => {
+      const client = createClient();
+      const messages: ServerMessage[] = [];
+      client.onTabMessage("tab-A", (msg) => messages.push(msg));
+
+      const ws = connectClient(client);
+      ws.simulateMessage({ type: "stream.done" });
+
+      // connection.ready + stream.done — both lack tabId so both are delivered
+      expect(messages).toHaveLength(2);
+    });
+
+    it("filters out messages for a different tab", () => {
+      const client = createClient();
+      const messages: ServerMessage[] = [];
+      client.onTabMessage("tab-A", (msg) => messages.push(msg));
+
+      const ws = connectClient(client);
+      ws.simulateMessage({ type: "stream.text", text: "wrong tab", tabId: "tab-B" } as any);
+
+      // Only connection.ready (no tabId) delivered; stream.text for tab-B filtered out
+      expect(messages).toHaveLength(1);
+      expect(messages[0].type).toBe("connection.ready");
+    });
+
+    it("returns an unsubscribe function", () => {
+      const client = createClient();
+      const messages: ServerMessage[] = [];
+      const unsub = client.onTabMessage("tab-A", (msg) => messages.push(msg));
+
+      const ws = connectClient(client);
+      unsub();
+      ws.simulateMessage({ type: "stream.text", text: "after unsub", tabId: "tab-A" } as any);
+
+      // Got connection.ready before unsub, nothing after
+      expect(messages).toHaveLength(1);
     });
   });
 

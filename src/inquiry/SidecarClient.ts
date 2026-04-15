@@ -161,6 +161,20 @@ export class SidecarClient {
   }
 
   /**
+   * Subscribe to messages for a specific tab.
+   * Messages without a tabId are also delivered (broadcast messages).
+   * Returns an unsubscribe function.
+   */
+  onTabMessage(tabId: string, listener: (msg: ServerMessage) => void): () => void {
+    const filtered = (msg: ServerMessage) => {
+      if (!(msg as any).tabId || (msg as any).tabId === tabId) {
+        listener(msg);
+      }
+    };
+    return this.onMessage(filtered);
+  }
+
+  /**
    * Subscribe to the connection.ready event from the server.
    * Returns an unsubscribe function.
    */
@@ -174,6 +188,7 @@ export class SidecarClient {
   // ── Send methods (all client message types) ─────────────
 
   sendQuery(
+    tabId: string,
     text: string,
     options?: {
       images?: string[];
@@ -183,7 +198,7 @@ export class SidecarClient {
       sessionId?: string;
     }
   ): void {
-    const msg: ClientMessage = { type: "query", text };
+    const msg: ClientMessage = { type: "query", tabId, text };
     if (options?.images) msg.images = options.images;
     if (options?.filePaths) msg.filePaths = options.filePaths;
     if (options?.editorSelection)
@@ -193,82 +208,88 @@ export class SidecarClient {
     this.send(msg);
   }
 
-  sendInterrupt(): void {
-    this.send({ type: "interrupt" });
+  sendInterrupt(tabId: string): void {
+    this.send({ type: "interrupt", tabId });
   }
 
-  sendApprove(toolCallId: string): void {
-    this.send({ type: "approve", toolCallId });
+  sendApprove(tabId: string, toolCallId: string): void {
+    this.send({ type: "approve", tabId, toolCallId });
   }
 
-  sendDeny(toolCallId: string): void {
-    this.send({ type: "deny", toolCallId });
+  sendDeny(tabId: string, toolCallId: string): void {
+    this.send({ type: "deny", tabId, toolCallId });
   }
 
-  sendAllowAlways(toolCallId: string, pattern: string): void {
-    this.send({ type: "allow_always", toolCallId, pattern });
+  sendAllowAlways(tabId: string, toolCallId: string, pattern: string): void {
+    this.send({ type: "allow_always", tabId, toolCallId, pattern });
   }
 
-  sendSessionList(): void {
-    this.send({ type: "session.list" });
+  sendSessionList(tabId: string): void {
+    this.send({ type: "session.list", tabId });
   }
 
-  sendSessionResume(sessionId: string): void {
-    this.send({ type: "session.resume", sessionId });
+  sendSessionResume(tabId: string, sessionId: string): void {
+    this.send({ type: "session.resume", tabId, sessionId });
   }
 
-  sendSessionFork(sessionId: string, messageIndex: number): void {
-    this.send({ type: "session.fork", sessionId, messageIndex });
+  sendSessionFork(tabId: string, sessionId: string, messageIndex: number): void {
+    this.send({ type: "session.fork", tabId, sessionId, messageIndex });
   }
 
-  sendSessionRewind(sessionId: string, messageIndex: number): void {
-    this.send({ type: "session.rewind", sessionId, messageIndex });
+  sendSessionRewind(tabId: string, sessionId: string, messageIndex: number): void {
+    this.send({ type: "session.rewind", tabId, sessionId, messageIndex });
   }
 
-  sendSettingsGet(): void {
-    this.send({ type: "settings.get" });
+  sendSettingsGet(tabId: string): void {
+    this.send({ type: "settings.get", tabId });
   }
 
-  sendSettingsUpdate(patch: Record<string, unknown>): void {
-    this.send({ type: "settings.update", patch });
+  sendSettingsUpdate(tabId: string, patch: Record<string, unknown>): void {
+    this.send({ type: "settings.update", tabId, patch });
   }
 
-  sendMcpList(): void {
-    this.send({ type: "mcp.list" });
+  sendMcpList(tabId: string): void {
+    this.send({ type: "mcp.list", tabId });
   }
 
-  sendMcpUpdate(config: Record<string, unknown>): void {
-    this.send({ type: "mcp.update", config });
+  sendMcpUpdate(tabId: string, config: Record<string, unknown>): void {
+    this.send({ type: "mcp.update", tabId, config });
   }
 
-  sendCommandList(): void {
-    this.send({ type: "command.list" });
+  sendCommandList(tabId: string): void {
+    this.send({ type: "command.list", tabId });
   }
 
-  sendPlanApprove(toolCallId: string): void {
-    this.send({ type: "plan.approve", toolCallId });
+  sendPlanApprove(tabId: string, toolCallId: string): void {
+    this.send({ type: "plan.approve", tabId, toolCallId });
   }
 
   sendPlanApproveNewSession(
+    tabId: string,
     toolCallId: string,
     planContent: string
   ): void {
-    this.send({ type: "plan.approve_new_session", toolCallId, planContent });
+    this.send({ type: "plan.approve_new_session", tabId, toolCallId, planContent });
   }
 
-  sendPlanFeedback(toolCallId: string, text: string): void {
-    this.send({ type: "plan.feedback", toolCallId, text });
+  sendPlanFeedback(tabId: string, toolCallId: string, text: string): void {
+    this.send({ type: "plan.feedback", tabId, toolCallId, text });
   }
 
   sendAskUserAnswer(
+    tabId: string,
     toolCallId: string,
     answers: Record<string, string>
   ): void {
-    this.send({ type: "askuser.answer", toolCallId, answers });
+    this.send({ type: "askuser.answer", tabId, toolCallId, answers });
   }
 
-  sendAskUserDismiss(toolCallId: string): void {
-    this.send({ type: "askuser.dismiss", toolCallId });
+  sendAskUserDismiss(tabId: string, toolCallId: string): void {
+    this.send({ type: "askuser.dismiss", tabId, toolCallId });
+  }
+
+  sendTabDestroy(tabId: string): void {
+    this.send({ type: "tab.destroy", tabId });
   }
 
   // ── HTTP fetch methods ──────────────────────────────────
