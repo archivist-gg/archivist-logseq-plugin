@@ -20,12 +20,7 @@ import type { ChatMessage } from '../state/types';
 import type { StreamController } from './StreamController';
 import type { SelectionController } from './SelectionController';
 import type { ConversationController } from './ConversationController';
-
-// Flavor words appended to response completion durations
-const COMPLETION_FLAVOR_WORDS = [
-  'Baked', 'Cooked', 'Forged', 'Crafted', 'Conjured',
-  'Brewed', 'Enchanted', 'Summoned', 'Invoked',
-];
+import { COMPLETION_FLAVOR_WORDS } from '../constants';
 
 function formatDurationMmSs(seconds: number): string {
   const mm = Math.floor(seconds / 60);

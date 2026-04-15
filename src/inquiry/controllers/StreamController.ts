@@ -38,19 +38,10 @@ import type {
   ToolCallInfo,
 } from '../state/types';
 import { setIcon } from '../shared/icons';
+import { FLAVOR_TEXTS } from '../constants';
 
 const TOOL_ENTER_PLAN_MODE = 'EnterPlanMode';
 const TOOL_WRITE = 'Write';
-
-// Flavor texts shown while waiting for a response
-const FLAVOR_TEXTS: Array<{ text: string; icon: string }> = [
-  { text: 'Thinking...', icon: 'brain' },
-  { text: 'Pondering...', icon: 'brain' },
-  { text: 'Mulling it over...', icon: 'brain' },
-  { text: 'Contemplating...', icon: 'brain' },
-  { text: 'Processing...', icon: 'loader' },
-  { text: 'Working on it...', icon: 'loader' },
-];
 
 function formatDurationMmSs(seconds: number): string {
   const mm = Math.floor(seconds / 60);
