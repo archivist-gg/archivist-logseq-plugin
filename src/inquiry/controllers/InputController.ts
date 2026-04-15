@@ -47,6 +47,8 @@ export interface InputControllerDeps {
   getInputContainerEl: () => HTMLElement;
   generateId: () => string;
   resetInputHeight: () => void;
+  /** Callback when permission mode changes (toggle or stream detection). */
+  onPermissionModeChanged?: (mode: 'unleashed' | 'guarded') => void;
 }
 
 export class InputController {
@@ -394,6 +396,34 @@ export class InputController {
     // TODO: When conversation persistence is wired, set the title here
     // For now just store locally
     void fallbackTitle;
+  }
+
+  // ============================================
+  // Plan Mode Toggle
+  // ============================================
+
+  /**
+   * Toggle permission mode between 'unleashed' and 'guarded'.
+   * Called on Shift+Tab or when EnterPlanMode tool is detected in stream.
+   */
+  togglePlanMode(): void {
+    const { client, state } = this.deps;
+    const current = state.permissionMode ?? 'unleashed';
+    const next = current === 'unleashed' ? 'guarded' : 'unleashed';
+    state.permissionMode = next;
+    client.sendSettingsUpdate(this.deps.tabId, { permissionMode: next });
+    this.deps.onPermissionModeChanged?.(next);
+  }
+
+  /**
+   * Set permission mode to a specific value (used by stream detection).
+   */
+  setPermissionMode(mode: 'unleashed' | 'guarded'): void {
+    const { client, state } = this.deps;
+    if (state.permissionMode === mode) return;
+    state.permissionMode = mode;
+    client.sendSettingsUpdate(this.deps.tabId, { permissionMode: mode });
+    this.deps.onPermissionModeChanged?.(mode);
   }
 
   // ============================================

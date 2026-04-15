@@ -21,6 +21,9 @@ import type {
 } from '../state/types';
 import { setIcon } from '../shared/icons';
 
+const TOOL_ENTER_PLAN_MODE = 'EnterPlanMode';
+const TOOL_WRITE = 'Write';
+
 // Flavor texts shown while waiting for a response
 const FLAVOR_TEXTS: Array<{ text: string; icon: string }> = [
   { text: 'Thinking...', icon: 'brain' },
@@ -44,6 +47,8 @@ export interface StreamControllerDeps {
   getMessagesEl: () => HTMLElement;
   /** Optional callback to update queue indicator in parent UI. */
   updateQueueIndicator?: () => void;
+  /** Callback when EnterPlanMode tool is detected — switches to guarded mode. */
+  onEnterPlanMode?: () => void;
 }
 
 /**
@@ -209,6 +214,17 @@ export class StreamController {
     assistantMsg.contentBlocks = assistantMsg.contentBlocks || [];
     assistantMsg.contentBlocks.push({ type: 'tool_use', toolId: msg.id });
 
+    // Detect EnterPlanMode: switch to guarded permission mode
+    if (msg.name === TOOL_ENTER_PLAN_MODE) {
+      state.permissionMode = 'guarded';
+      this.deps.onEnterPlanMode?.();
+    }
+
+    // Track Write to ~/.claude/plans/ for plan mode (used by approve-new-session)
+    if (msg.name === TOOL_WRITE) {
+      this.capturePlanFilePath(msg.input);
+    }
+
     // Render the tool call element
     if (state.currentContentEl) {
       const toolEl = this.renderToolCall(doc, state.currentContentEl, toolCall);
@@ -290,6 +306,17 @@ export class StreamController {
     parentEl.appendChild(toolEl);
 
     return toolEl;
+  }
+
+  // ============================================
+  // Plan File Path Capture
+  // ============================================
+
+  private capturePlanFilePath(input: Record<string, unknown>): void {
+    const filePath = input.file_path as string | undefined;
+    if (filePath && filePath.replace(/\\/g, '/').includes('/.claude/plans/')) {
+      this.deps.state.planFilePath = filePath;
+    }
   }
 
   // ============================================

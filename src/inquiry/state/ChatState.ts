@@ -4,6 +4,7 @@ import type {
   ChatStateCallbacks,
   ChatStateData,
   PendingToolCall,
+  PermissionMode,
   QueuedMessage,
   ThinkingBlockState,
   TodoItem,
@@ -37,6 +38,7 @@ function createInitialState(): ChatStateData {
     autoScrollEnabled: true,
     responseStartTime: null,
     flavorTimerInterval: null,
+    permissionMode: 'unleashed',
     pendingNewSessionPlan: null,
     planFilePath: null,
   };
@@ -321,6 +323,14 @@ export class ChatState {
 
   set flavorTimerInterval(value: ReturnType<typeof setInterval> | null) {
     this.state.flavorTimerInterval = value;
+  }
+
+  get permissionMode(): PermissionMode {
+    return this.state.permissionMode;
+  }
+
+  set permissionMode(value: PermissionMode) {
+    this.state.permissionMode = value;
   }
 
   get pendingNewSessionPlan(): string | null {

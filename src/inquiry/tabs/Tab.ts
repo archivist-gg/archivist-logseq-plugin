@@ -505,6 +505,13 @@ export function wireTabInputEvents(tab: TabData): void {
       return;
     }
 
+    // Shift+Tab: toggle plan mode
+    if (e.key === 'Tab' && e.shiftKey) {
+      e.preventDefault();
+      controllers.inputController?.togglePlanMode();
+      return;
+    }
+
     // Check !e.isComposing for IME support
     if (e.key === 'Escape' && !e.isComposing && state.isStreaming) {
       e.preventDefault();

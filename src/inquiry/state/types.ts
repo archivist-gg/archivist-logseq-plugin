@@ -213,7 +213,7 @@ export interface WriteEditState {
 // ── Chat state data ──────────────────────────────────────
 
 /** Permission mode for tool approval. */
-export type PermissionMode = 'default' | 'plan' | 'yolo';
+export type PermissionMode = 'unleashed' | 'guarded';
 
 /** Centralized chat state data. */
 export interface ChatStateData {
@@ -268,6 +268,9 @@ export interface ChatStateData {
   // Response timer state
   responseStartTime: number | null;
   flavorTimerInterval: ReturnType<typeof setInterval> | null;
+
+  // Permission mode (unleashed = auto-approve, guarded = ask permission)
+  permissionMode: PermissionMode;
 
   // Pending plan content for approve-new-session
   pendingNewSessionPlan: string | null;
