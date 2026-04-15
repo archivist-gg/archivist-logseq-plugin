@@ -45,20 +45,31 @@ export class MessageRenderer {
   private client: SidecarClient;
   private messagesEl: HTMLElement;
   private onPageClick?: (pageName: string) => void;
+  private rewindCallback?: (messageId: string) => Promise<void>;
+  private forkCallback?: (messageId: string) => Promise<void>;
   private dndCopyAndSaveCallback?: CopyAndSaveCallback;
+  private liveMessageEls = new Map<string, HTMLElement>();
 
   private static readonly COPY_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+
+  private static readonly REWIND_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`;
+
+  private static readonly FORK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9"/><path d="M12 12v3"/></svg>`;
 
   constructor(
     doc: Document,
     client: SidecarClient,
     messagesEl: HTMLElement,
     onPageClick?: (pageName: string) => void,
+    rewindCallback?: (messageId: string) => Promise<void>,
+    forkCallback?: (messageId: string) => Promise<void>,
   ) {
     this.doc = doc;
     this.client = client;
     this.messagesEl = messagesEl;
     this.onPageClick = onPageClick;
+    this.rewindCallback = rewindCallback;
+    this.forkCallback = forkCallback;
   }
 
   /** Sets the messages container element. */
@@ -120,6 +131,9 @@ export class MessageRenderer {
         void this.renderContent(textEl, textToShow);
         this.addUserCopyButton(msgEl, textToShow);
       }
+      if (this.rewindCallback || this.forkCallback) {
+        this.liveMessageEls.set(msg.id, msgEl);
+      }
     }
 
     this.scrollToBottom();
@@ -138,6 +152,7 @@ export class MessageRenderer {
     getGreeting: () => string,
   ): HTMLElement {
     while (this.messagesEl.firstChild) this.messagesEl.removeChild(this.messagesEl.firstChild);
+    this.liveMessageEls.clear();
 
     // Create welcome element
     const welcomeEl = this.doc.createElement('div');
@@ -162,7 +177,7 @@ export class MessageRenderer {
     return welcomeEl;
   }
 
-  renderStoredMessage(msg: ChatMessage, allMessages?: ChatMessage[], _index?: number): void {
+  renderStoredMessage(msg: ChatMessage, allMessages?: ChatMessage[], index?: number): void {
     // Render interrupt messages with special styling
     if (msg.isInterrupt) {
       this.renderInterruptMessage();
@@ -202,6 +217,14 @@ export class MessageRenderer {
         contentEl.appendChild(textEl);
         void this.renderContent(textEl, textToShow);
         this.addUserCopyButton(msgEl, textToShow);
+      }
+      if (msg.sdkUserUuid && this.isRewindEligible(allMessages, index)) {
+        if (this.rewindCallback) {
+          this.addRewindButton(msgEl, msg.id);
+        }
+        if (this.forkCallback) {
+          this.addForkButton(msgEl, msg.id);
+        }
       }
     } else if (msg.role === 'assistant') {
       this.renderAssistantContent(msg, contentEl);
@@ -621,6 +644,116 @@ export class MessageRenderer {
     toolbar.className = 'claudian-user-msg-actions';
     msgEl.appendChild(toolbar);
     return toolbar;
+  }
+
+  // ============================================
+  // Rewind / Fork
+  // ============================================
+
+  /**
+   * Checks if a user message is eligible for rewind/fork buttons.
+   * Requires a preceding assistant message with an SDK UUID and a
+   * following assistant response with an SDK UUID.
+   */
+  private isRewindEligible(allMessages?: ChatMessage[], index?: number): boolean {
+    if (!allMessages || index === undefined) return false;
+
+    // Find previous assistant UUID
+    let prevAssistantUuid: string | undefined;
+    for (let i = index - 1; i >= 0; i--) {
+      if (allMessages[i].role === 'assistant' && allMessages[i].sdkAssistantUuid) {
+        prevAssistantUuid = allMessages[i].sdkAssistantUuid;
+        break;
+      }
+    }
+
+    // Find following assistant response with UUID
+    let hasResponse = false;
+    for (let i = index + 1; i < allMessages.length; i++) {
+      if (allMessages[i].role === 'user') break;
+      if (allMessages[i].role === 'assistant' && allMessages[i].sdkAssistantUuid) {
+        hasResponse = true;
+        break;
+      }
+    }
+
+    return !!prevAssistantUuid && hasResponse;
+  }
+
+  private addRewindButton(msgEl: HTMLElement, messageId: string): void {
+    const toolbar = this.getOrCreateActionsToolbar(msgEl);
+
+    const btn = this.doc.createElement('span');
+    btn.className = 'claudian-message-rewind-btn';
+    setTrustedSvg(btn, MessageRenderer.REWIND_ICON);
+    btn.setAttribute('aria-label', 'Rewind to this message');
+
+    // Insert at beginning of toolbar (before copy button)
+    if (toolbar.firstChild) {
+      toolbar.insertBefore(btn, toolbar.firstChild);
+    } else {
+      toolbar.appendChild(btn);
+    }
+
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        await this.rewindCallback?.(messageId);
+      } catch (err) {
+        console.error('Rewind failed:', err);
+      }
+    });
+  }
+
+  private addForkButton(msgEl: HTMLElement, messageId: string): void {
+    const toolbar = this.getOrCreateActionsToolbar(msgEl);
+
+    const btn = this.doc.createElement('span');
+    btn.className = 'claudian-message-fork-btn';
+    setTrustedSvg(btn, MessageRenderer.FORK_ICON);
+    btn.setAttribute('aria-label', 'Fork from this message');
+
+    // Insert at beginning of toolbar (before rewind/copy buttons)
+    if (toolbar.firstChild) {
+      toolbar.insertBefore(btn, toolbar.firstChild);
+    } else {
+      toolbar.appendChild(btn);
+    }
+
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        await this.forkCallback?.(messageId);
+      } catch (err) {
+        console.error('Fork failed:', err);
+      }
+    });
+  }
+
+  /**
+   * Called after streaming completes to attach rewind/fork buttons
+   * to user messages that were added during streaming (before the
+   * assistant response was available to determine eligibility).
+   */
+  refreshActionButtons(msg: ChatMessage, allMessages?: ChatMessage[], index?: number): void {
+    if (!msg.sdkUserUuid) return;
+    if (!this.isRewindEligible(allMessages, index)) return;
+    const msgEl = this.liveMessageEls.get(msg.id);
+    if (!msgEl) return;
+
+    if (this.rewindCallback && !msgEl.querySelector('.claudian-message-rewind-btn')) {
+      this.addRewindButton(msgEl, msg.id);
+    }
+    if (this.forkCallback && !msgEl.querySelector('.claudian-message-fork-btn')) {
+      this.addForkButton(msgEl, msg.id);
+    }
+
+    // Clean up tracking if all buttons are attached
+    const needsRewind = this.rewindCallback && !msgEl.querySelector('.claudian-message-rewind-btn');
+    const needsFork = this.forkCallback && !msgEl.querySelector('.claudian-message-fork-btn');
+    if (!needsRewind && !needsFork) {
+      this.liveMessageEls.delete(msg.id);
+    }
   }
 
   // ============================================

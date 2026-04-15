@@ -137,6 +137,7 @@ export interface Conversation {
   sdkMessagesLoaded?: boolean;
   subagentData?: Record<string, SubagentInfo>;
   resumeSessionAt?: string;
+  forkSource?: { sessionId: string; resumeAt: string };
 }
 
 export interface ConversationMeta {
