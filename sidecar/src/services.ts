@@ -10,7 +10,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 import { NotificationEmitter } from './adapter/index.js';
-import { ClaudianService, type ApprovalDecision } from './core/agent/ClaudianService.js';
+import { type ApprovalDecision } from './core/agent/ClaudianService.js';
 import { AgentManager } from './core/agents/AgentManager.js';
 import { McpServerManager } from './core/mcp/index.js';
 import { PluginManager } from './core/plugins/PluginManager.js';
@@ -18,6 +18,7 @@ import { StorageService } from './core/storage/StorageService.js';
 import type { ClaudianSettings } from './core/types/settings.js';
 import type { SidecarContext } from './core/agent/ClaudianService.js';
 import type { ExitPlanModeDecision } from './core/types/index.js';
+import { SessionRouter } from './SessionRouter.js';
 
 // ── Pending callback registry ─────────────────────────────
 
@@ -78,10 +79,7 @@ export class PendingCallbackRegistry<T> {
 
 export interface SidecarServices {
   storage: StorageService;
-  claudian: ClaudianService & {
-    /** Proxy to the context's getSettings for the handler. */
-    getSettings(): ClaudianSettings;
-  };
+  sessionRouter: SessionRouter;
   mcp: McpServerManager;
   notifications: NotificationEmitter;
   pendingApprovals: PendingCallbackRegistry<ApprovalDecision>;
@@ -169,22 +167,12 @@ export async function initializeServices(
     getArchivistSettings: () => ({}),
   };
 
-  // 7. ClaudianService
-  const claudian = new ClaudianService(context, mcp);
-
-  // Wire approval callback to route through the pending registry
-  // (The actual wiring of approvalCallback, askUserCallback, etc.
-  //  will be completed in the integration task when we have the
-  //  broadcast function available.)
-
-  // Create a proxy that also exposes getSettings
-  const claudianProxy = Object.assign(claudian, {
-    getSettings: () => currentSettings,
-  });
+  // 7. SessionRouter (manages per-tab ClaudianService instances)
+  const sessionRouter = new SessionRouter(context, mcp);
 
   return {
     storage,
-    claudian: claudianProxy,
+    sessionRouter,
     mcp,
     notifications,
     pendingApprovals,

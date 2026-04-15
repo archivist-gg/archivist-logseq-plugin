@@ -30,9 +30,19 @@ export interface SDKToolUseResult {
   [key: string]: unknown;
 }
 
+// ── Base types ──────────────────────────────────────────
+
+export interface ClientMessageBase {
+  tabId: string;
+}
+
+export interface ServerMessageBase {
+  tabId?: string;
+}
+
 // ── Client -> Server messages ────────────────────────────
 
-export interface QueryMessage {
+export interface QueryMessage extends ClientMessageBase {
   type: 'query';
   text: string;
   images?: string[];
@@ -42,95 +52,99 @@ export interface QueryMessage {
   sessionId?: string;
 }
 
-export interface InterruptMessage {
+export interface InterruptMessage extends ClientMessageBase {
   type: 'interrupt';
 }
 
-export interface ApproveMessage {
+export interface ApproveMessage extends ClientMessageBase {
   type: 'approve';
   toolCallId: string;
 }
 
-export interface DenyMessage {
+export interface DenyMessage extends ClientMessageBase {
   type: 'deny';
   toolCallId: string;
 }
 
-export interface AllowAlwaysMessage {
+export interface AllowAlwaysMessage extends ClientMessageBase {
   type: 'allow_always';
   toolCallId: string;
   pattern: string;
 }
 
-export interface SessionListMessage {
+export interface SessionListMessage extends ClientMessageBase {
   type: 'session.list';
 }
 
-export interface SessionResumeMessage {
+export interface SessionResumeMessage extends ClientMessageBase {
   type: 'session.resume';
   sessionId: string;
 }
 
-export interface SessionForkMessage {
+export interface SessionForkMessage extends ClientMessageBase {
   type: 'session.fork';
   sessionId: string;
   messageIndex: number;
 }
 
-export interface SessionRewindMessage {
+export interface SessionRewindMessage extends ClientMessageBase {
   type: 'session.rewind';
   sessionId: string;
   messageIndex: number;
 }
 
-export interface SettingsGetMessage {
+export interface SettingsGetMessage extends ClientMessageBase {
   type: 'settings.get';
 }
 
-export interface SettingsUpdateMessage {
+export interface SettingsUpdateMessage extends ClientMessageBase {
   type: 'settings.update';
   patch: Record<string, unknown>;
 }
 
-export interface McpListMessage {
+export interface McpListMessage extends ClientMessageBase {
   type: 'mcp.list';
 }
 
-export interface McpUpdateMessage {
+export interface McpUpdateMessage extends ClientMessageBase {
   type: 'mcp.update';
   config: Record<string, unknown>;
 }
 
-export interface CommandListMessage {
+export interface CommandListMessage extends ClientMessageBase {
   type: 'command.list';
 }
 
-export interface PlanApproveMessage {
+export interface PlanApproveMessage extends ClientMessageBase {
   type: 'plan.approve';
   toolCallId: string;
 }
 
-export interface PlanApproveNewSessionMessage {
+export interface PlanApproveNewSessionMessage extends ClientMessageBase {
   type: 'plan.approve_new_session';
   toolCallId: string;
   planContent: string;
 }
 
-export interface PlanFeedbackMessage {
+export interface PlanFeedbackMessage extends ClientMessageBase {
   type: 'plan.feedback';
   toolCallId: string;
   text: string;
 }
 
-export interface AskUserAnswerMessage {
+export interface AskUserAnswerMessage extends ClientMessageBase {
   type: 'askuser.answer';
   toolCallId: string;
   answers: Record<string, string>;
 }
 
-export interface AskUserDismissMessage {
+export interface AskUserDismissMessage extends ClientMessageBase {
   type: 'askuser.dismiss';
   toolCallId: string;
+}
+
+export interface TabDestroyMessage extends ClientMessageBase {
+  type: 'tab.destroy';
 }
 
 export type ClientMessage =
@@ -152,23 +166,24 @@ export type ClientMessage =
   | PlanApproveNewSessionMessage
   | PlanFeedbackMessage
   | AskUserAnswerMessage
-  | AskUserDismissMessage;
+  | AskUserDismissMessage
+  | TabDestroyMessage;
 
 // ── Server -> Client messages ────────────────────────────
 
-export interface StreamTextMessage {
+export interface StreamTextMessage extends ServerMessageBase {
   type: 'stream.text';
   text: string;
   parentToolUseId?: string | null;
 }
 
-export interface StreamThinkingMessage {
+export interface StreamThinkingMessage extends ServerMessageBase {
   type: 'stream.thinking';
   text: string;
   parentToolUseId?: string | null;
 }
 
-export interface StreamToolUseMessage {
+export interface StreamToolUseMessage extends ServerMessageBase {
   type: 'stream.tool_use';
   id: string;
   name: string;
@@ -176,7 +191,7 @@ export interface StreamToolUseMessage {
   parentToolUseId?: string | null;
 }
 
-export interface StreamToolResultMessage {
+export interface StreamToolResultMessage extends ServerMessageBase {
   type: 'stream.tool_result';
   id: string;
   content: string;
@@ -185,27 +200,27 @@ export interface StreamToolResultMessage {
   toolUseResult?: SDKToolUseResult;
 }
 
-export interface StreamDoneMessage {
+export interface StreamDoneMessage extends ServerMessageBase {
   type: 'stream.done';
 }
 
-export interface StreamErrorMessage {
+export interface StreamErrorMessage extends ServerMessageBase {
   type: 'stream.error';
   message: string;
 }
 
-export interface StreamBlockedMessage {
+export interface StreamBlockedMessage extends ServerMessageBase {
   type: 'stream.blocked';
   content: string;
 }
 
-export interface StreamUsageMessage {
+export interface StreamUsageMessage extends ServerMessageBase {
   type: 'stream.usage';
   usage: UsageInfo;
   sessionId?: string | null;
 }
 
-export interface StreamSubagentMessage {
+export interface StreamSubagentMessage extends ServerMessageBase {
   type: 'stream.subagent';
   id: string;
   status: string;
@@ -213,31 +228,31 @@ export interface StreamSubagentMessage {
   result?: string;
 }
 
-export interface StreamCompactBoundaryMessage {
+export interface StreamCompactBoundaryMessage extends ServerMessageBase {
   type: 'stream.compact_boundary';
 }
 
-export interface StreamSdkUserUuidMessage {
+export interface StreamSdkUserUuidMessage extends ServerMessageBase {
   type: 'stream.sdk_user_uuid';
   uuid: string;
 }
 
-export interface StreamSdkUserSentMessage {
+export interface StreamSdkUserSentMessage extends ServerMessageBase {
   type: 'stream.sdk_user_sent';
   uuid: string;
 }
 
-export interface StreamSdkAssistantUuidMessage {
+export interface StreamSdkAssistantUuidMessage extends ServerMessageBase {
   type: 'stream.sdk_assistant_uuid';
   uuid: string;
 }
 
-export interface StreamContextWindowMessage {
+export interface StreamContextWindowMessage extends ServerMessageBase {
   type: 'stream.context_window';
   contextWindow: number;
 }
 
-export interface ApprovalRequestMessage {
+export interface ApprovalRequestMessage extends ServerMessageBase {
   type: 'approval.request';
   toolCallId: string;
   name: string;
@@ -245,13 +260,13 @@ export interface ApprovalRequestMessage {
   description: string;
 }
 
-export interface PlanModeRequestMessage {
+export interface PlanModeRequestMessage extends ServerMessageBase {
   type: 'plan_mode.request';
   toolCallId: string;
   plan: Record<string, unknown>;
 }
 
-export interface AskUserQuestionMessage {
+export interface AskUserQuestionMessage extends ServerMessageBase {
   type: 'askuser.question';
   toolCallId: string;
   question: string;
@@ -260,12 +275,12 @@ export interface AskUserQuestionMessage {
   multiSelect: boolean;
 }
 
-export interface SessionLoadedMessage {
+export interface SessionLoadedMessage extends ServerMessageBase {
   type: 'session.loaded';
   conversation: unknown;
 }
 
-export interface SessionListResultMessage {
+export interface SessionListResultMessage extends ServerMessageBase {
   type: 'session.list_result';
   sessions: Array<{
     id: string;
@@ -275,24 +290,24 @@ export interface SessionListResultMessage {
   }>;
 }
 
-export interface SettingsCurrentMessage {
+export interface SettingsCurrentMessage extends ServerMessageBase {
   type: 'settings.current';
   claudian: Record<string, unknown>;
   cc: Record<string, unknown>;
 }
 
-export interface CommandListResultMessage {
+export interface CommandListResultMessage extends ServerMessageBase {
   type: 'command.list_result';
   commands: Array<{ name: string; description: string }>;
 }
 
-export interface NotificationMessage {
+export interface NotificationMessage extends ServerMessageBase {
   type: 'notification';
   message: string;
   notificationType: 'info' | 'warning' | 'error';
 }
 
-export interface ConnectionReadyMessage {
+export interface ConnectionReadyMessage extends ServerMessageBase {
   type: 'connection.ready';
   version: string;
 }
