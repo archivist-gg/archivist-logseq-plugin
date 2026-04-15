@@ -22,6 +22,11 @@ export {
   SelectionController,
 } from './SelectionController';
 export {
+  type EditorContext,
+  type EditorSelectionCallbacks,
+  EditorSelectionController,
+} from './EditorSelectionController';
+export {
   StreamController,
   type StreamControllerDeps,
   type StreamRendererBridge,

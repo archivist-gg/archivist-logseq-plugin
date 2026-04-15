@@ -28,6 +28,8 @@ import type {
   ModelSelector,
   ThinkingBudgetSelector,
   ContextUsageMeter,
+  ExternalContextSelector,
+  McpServerSelector,
   InstructionModeManager,
   BangBashModeManager,
 } from '../ui';
@@ -106,6 +108,8 @@ export interface TabUIComponents {
   modelSelector: ModelSelector | null;
   thinkingBudgetSelector: ThinkingBudgetSelector | null;
   contextUsageMeter: ContextUsageMeter | null;
+  externalContextSelector: ExternalContextSelector | null;
+  mcpServerSelector: McpServerSelector | null;
   instructionModeManager: InstructionModeManager | null;
   bangBashModeManager: BangBashModeManager | null;
   statusPanel: StatusPanel | null;

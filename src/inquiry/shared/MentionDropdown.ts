@@ -4,18 +4,25 @@
  * Pure DOM dropdown. Fetches file list, filters as user types,
  * inserts selection. No Obsidian TFile/Vault dependencies.
  *
- * The file list is fetched from the sidecar or provided statically.
+ * Item sources:
+ * 1. Logseq pages — via `logseq.Editor.getAllPages()` (or `top?.logseq`)
+ * 2. Agents / MCP servers — fetched from sidecar via `SidecarClient`
+ * 3. Static items — provided by the caller via `getItems`
  */
 
 import { setIcon } from './icons';
 
 // ── Types ─────────────────────────────────────────────────
 
+export type MentionItemType = 'page' | 'agent' | 'mcp' | 'file';
+
 export interface MentionItem {
   path: string;
   name: string;
-  /** Optional icon hint: 'file-text', 'folder', etc. */
+  /** Optional icon hint: 'file-text', 'folder', 'bot', 'globe', etc. */
   icon?: string;
+  /** Item type for grouping / display. Defaults to 'file'. */
+  type?: MentionItemType;
 }
 
 export interface MentionDropdownOptions {
@@ -25,7 +32,7 @@ export interface MentionDropdownOptions {
   anchorEl: HTMLElement;
   /** Initial query string (text after @) */
   initialQuery?: string;
-  /** Provide the list of mentionable files */
+  /** Provide the list of mentionable items (pages, agents, MCP servers, files) */
   getItems: () => MentionItem[] | Promise<MentionItem[]>;
   /** Called when user selects an item */
   onSelect: (item: MentionItem) => void;
@@ -37,6 +44,37 @@ export interface MentionDropdownOptions {
 
 const MAX_VISIBLE = 8;
 const MIN_QUERY_LENGTH = 0;
+
+// ── Logseq page fetcher ──────────────────────────────────
+
+/**
+ * Fetches all Logseq pages as MentionItems.
+ * Uses `top?.logseq?.Editor?.getAllPages()` which is the standard
+ * Logseq plugin API access from the iframe sandbox.
+ */
+export async function fetchLogseqPages(): Promise<MentionItem[]> {
+  try {
+    // Access Logseq API — plugin iframe has access via `logseq` global
+    // or `top?.logseq` depending on context
+    const api = (typeof logseq !== 'undefined' ? logseq : null)
+      ?? (globalThis as any).top?.logseq;
+    if (!api?.Editor?.getAllPages) return [];
+
+    const pages = await api.Editor.getAllPages();
+    if (!Array.isArray(pages)) return [];
+
+    return pages
+      .filter((p: any) => p && p.name && !p['journal?'])
+      .map((p: any) => ({
+        path: p.originalName ?? p.name,
+        name: p.originalName ?? p.name,
+        icon: 'file-text',
+        type: 'page' as MentionItemType,
+      }));
+  } catch {
+    return [];
+  }
+}
 
 // ── Class ─────────────────────────────────────────────────
 
@@ -220,6 +258,16 @@ export class MentionDropdown {
       nameEl.textContent = item.name;
       nameEl.style.cssText = 'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
       itemEl.appendChild(nameEl);
+
+      // Type badge (for agents and MCP servers)
+      const itemType = item.type ?? 'file';
+      if (itemType === 'agent' || itemType === 'mcp') {
+        const badgeEl = this.doc.createElement('span');
+        badgeEl.className = 'claudian-mention-badge';
+        badgeEl.textContent = itemType === 'agent' ? 'agent' : 'mcp';
+        badgeEl.style.cssText = 'font-size: 10px; padding: 1px 4px; border-radius: 3px; background: var(--ls-tertiary-background-color, #e0e0e0); color: var(--ls-secondary-text-color, #666); flex-shrink: 0;';
+        itemEl.appendChild(badgeEl);
+      }
 
       // Path hint (if different from name)
       if (item.path !== item.name) {

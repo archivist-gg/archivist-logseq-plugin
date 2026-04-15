@@ -138,6 +138,8 @@ export function createTab(options: TabCreateOptions): TabData {
       modelSelector: null,
       thinkingBudgetSelector: null,
       contextUsageMeter: null,
+      externalContextSelector: null,
+      mcpServerSelector: null,
       instructionModeManager: null,
       bangBashModeManager: null,
       statusPanel: null,
@@ -350,11 +352,13 @@ export function initializeTabUI(
       options.onEffortLevelChange(effort);
     },
     getSettings: options.getSettings,
-  });
+  }, client);
 
   tab.ui.modelSelector = toolbar.modelSelector;
   tab.ui.thinkingBudgetSelector = toolbar.thinkingBudgetSelector;
   tab.ui.contextUsageMeter = toolbar.contextUsageMeter;
+  tab.ui.externalContextSelector = toolbar.externalContextSelector;
+  tab.ui.mcpServerSelector = toolbar.mcpServerSelector;
 
   // Wire ChatState callbacks for UI updates
   state.callbacks = {
@@ -672,6 +676,8 @@ export async function destroyTab(tab: TabData): Promise<void> {
 
   // Cleanup UI components
   tab.ui.fileContextManager?.destroy();
+  tab.ui.mcpServerSelector?.destroy();
+  tab.ui.mcpServerSelector = null;
   tab.ui.instructionModeManager?.destroy();
   tab.ui.instructionModeManager = null;
   tab.ui.bangBashModeManager?.destroy();

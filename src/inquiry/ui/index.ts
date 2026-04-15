@@ -26,6 +26,8 @@ export {
   ContextUsageMeter,
   createInputToolbar,
   type EffortLevel,
+  ExternalContextSelector,
+  McpServerSelector,
   ModelSelector,
   ThinkingBudgetSelector,
   type ToolbarCallbacks,
