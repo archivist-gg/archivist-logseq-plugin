@@ -15,6 +15,7 @@
  * - `renderMarkdownToEl()` wired as StreamController.rendererBridge.
  */
 
+import '@logseq/libs';
 import type { SidecarClient } from '../SidecarClient';
 import type {
   ApprovalRequestMessage,
@@ -384,11 +385,15 @@ export function initializeTabControllers(
 ): void {
   const { dom, state, ui } = tab;
 
-  // Create renderer
+  // Create renderer with page navigation callback for [[wikilinks]]
   tab.renderer = new MessageRenderer(
     doc,
     client,
     dom.messagesEl,
+    (pageName: string) => {
+      // Navigate to the referenced Logseq page
+      logseq.App.pushState('page', { name: pageName });
+    },
   );
 
   // Create stream controller
@@ -401,9 +406,12 @@ export function initializeTabControllers(
   });
 
   // Wire the renderer bridge so markdown renders properly (not plain text fallback)
+  const pageClickHandler = (pageName: string) => {
+    logseq.App.pushState('page', { name: pageName });
+  };
   tab.controllers.streamController.setRendererBridge({
     renderContent: async (el: HTMLElement, markdown: string) => {
-      renderMarkdownToEl(doc, el, markdown);
+      renderMarkdownToEl(doc, el, markdown, pageClickHandler);
     },
     addTextCopyButton: (el: HTMLElement, text: string) => {
       tab.renderer?.addTextCopyButton(el, text);
