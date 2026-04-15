@@ -102,6 +102,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  justify-content: flex-start;
 }
 
 .archivist-inquiry-message {
@@ -522,7 +523,9 @@
 .claudian-new-tab-btn svg {
   width: 16.8px;
   height: 16.8px;
-}/* Tab bar container - constrained within header, scrollable, owns the bottom border */
+}
+
+/* Tab bar container - constrained within header, scrollable, owns the bottom border */
 .claudian-tab-bar-container {
   display: flex;
   align-items: stretch;
@@ -848,6 +851,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  justify-content: flex-start;
 }
 
 /* Focusable messages panel for vim-style navigation */
@@ -5626,6 +5630,7 @@ code .claudian-file-link:hover {
   flex: 1 1 0 !important;
   overflow-y: auto !important;
   min-height: 0 !important;
+  justify-content: flex-start !important;
 }
 
 #archivist-inquiry-panel .claudian-input-container {
