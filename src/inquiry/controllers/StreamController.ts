@@ -32,6 +32,7 @@ import {
   finalizeSubagentBlock,
   type SubagentState,
 } from '../rendering/SubagentRenderer';
+import { parseTodoInput } from '../rendering/TodoListRenderer';
 import type { ChatState } from '../state/ChatState';
 import type {
   ChatMessage,
@@ -41,6 +42,7 @@ import { setIcon } from '../shared/icons';
 import { FLAVOR_TEXTS } from '../constants';
 
 const TOOL_ENTER_PLAN_MODE = 'EnterPlanMode';
+const TOOL_TODO_WRITE = 'TodoWrite';
 const TOOL_WRITE = 'Write';
 
 function formatDurationMmSs(seconds: number): string {
@@ -227,6 +229,14 @@ export class StreamController {
           }
         }
 
+        // Re-parse TodoWrite on input updates (streaming may complete the input)
+        if (existingToolCall.name === TOOL_TODO_WRITE) {
+          const todos = parseTodoInput(existingToolCall.input);
+          if (todos) {
+            this.deps.state.currentTodos = todos;
+          }
+        }
+
         // Track Write to ~/.claude/plans/ on input updates (file_path may arrive in a later chunk)
         if (existingToolCall.name === TOOL_WRITE) {
           this.capturePlanFilePath(existingToolCall.input);
@@ -258,6 +268,14 @@ export class StreamController {
     if (msg.name === TOOL_ENTER_PLAN_MODE) {
       state.permissionMode = 'guarded';
       this.deps.onEnterPlanMode?.();
+    }
+
+    // TodoWrite: update panel state immediately (side effect), but still render tool call
+    if (msg.name === TOOL_TODO_WRITE) {
+      const todos = parseTodoInput(msg.input);
+      if (todos) {
+        this.deps.state.currentTodos = todos;
+      }
     }
 
     // Track Write to ~/.claude/plans/ for plan mode (used by approve-new-session)

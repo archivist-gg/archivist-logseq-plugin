@@ -19,6 +19,8 @@ import type { SidecarClient } from '../SidecarClient';
 import type {
   ApprovalRequestMessage,
   AskUserQuestionMessage,
+  BashResultMessage,
+  InstructionRefineResultMessage,
   PlanModeRequestMessage,
   SessionListResultMessage,
   SessionLoadedMessage,
@@ -303,7 +305,8 @@ export function initializeTabUI(
 
   tab.ui.instructionModeManager = new InstructionModeManager(inputAdapter, {
     onSubmit: async (instruction) => {
-      client.sendSettingsUpdate(tab.id, { customSystemPrompt: instruction });
+      // Send instruction to sidecar for refinement via cold-start query
+      client.sendInstructionRefine(tab.id, instruction, '');
       tab.ui.instructionModeManager?.clear();
     },
     getInputWrapper: () => dom.inputWrapper,
@@ -313,7 +316,18 @@ export function initializeTabUI(
   // Bang bash mode (! prefix)
   tab.ui.bangBashModeManager = new BangBashModeManager(inputAdapter, {
     onSubmit: async (command) => {
-      client.sendQuery(tab.id, `!${command}`);
+      const bashId = `bash-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+      // Add running entry to StatusPanel
+      tab.ui.statusPanel?.addBashOutput({
+        id: bashId,
+        command,
+        status: 'running',
+        output: '',
+      });
+
+      // Send to sidecar for execution
+      client.sendBashExecute(tab.id, bashId, command);
     },
     getInputWrapper: () => dom.inputWrapper,
     resetInputHeight: () => { /* contentEditable auto-sizes */ },
@@ -439,7 +453,7 @@ export function initializeTabControllers(
     },
   });
 
-  // Subscribe to tab-scoped messages (approval, askuser, planmode, session)
+  // Subscribe to tab-scoped messages (approval, askuser, planmode, session, bash, instruction)
   const unsubTabMessages = client.onTabMessage(tab.id, (msg) => {
     if (msg.type === 'approval.request') {
       tab.controllers.inputController?.handleApprovalRequest(msg as ApprovalRequestMessage);
@@ -453,6 +467,21 @@ export function initializeTabControllers(
     } else if (msg.type === 'session.loaded') {
       const loadedMsg = msg as SessionLoadedMessage;
       tab.controllers.conversationController?.onSessionLoaded(loadedMsg.conversation);
+    } else if (msg.type === 'bash.result') {
+      // Update StatusPanel with bash execution result
+      const bashMsg = msg as BashResultMessage;
+      tab.ui.statusPanel?.updateBashOutput(bashMsg.id, {
+        status: bashMsg.exitCode === 0 ? 'completed' : 'error',
+        output: bashMsg.error || bashMsg.output,
+        exitCode: bashMsg.exitCode,
+      });
+    } else if (msg.type === 'instruction.refine_result') {
+      // Handle instruction refinement result from sidecar
+      const refineMsg = msg as InstructionRefineResultMessage;
+      if (refineMsg.success && refineMsg.refinedInstruction) {
+        // Apply the refined instruction as custom system prompt
+        client.sendSettingsUpdate(tab.id, { customSystemPrompt: refineMsg.refinedInstruction });
+      }
     }
   });
   dom.eventCleanups.push(unsubTabMessages);

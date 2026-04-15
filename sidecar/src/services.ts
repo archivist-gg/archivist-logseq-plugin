@@ -85,6 +85,8 @@ export interface SidecarServices {
   pendingApprovals: PendingCallbackRegistry<ApprovalDecision>;
   pendingPlanDecisions: PendingCallbackRegistry<PlanDecision>;
   pendingAskUser: PendingCallbackRegistry<Record<string, string> | null>;
+  /** Absolute path to the Logseq graph root directory. */
+  graphRoot: string;
   /** Current settings accessor. */
   getSettings(): ClaudianSettings;
 }
@@ -178,6 +180,7 @@ export async function initializeServices(
     pendingApprovals,
     pendingPlanDecisions,
     pendingAskUser,
+    graphRoot,
     getSettings: () => currentSettings,
   };
 }

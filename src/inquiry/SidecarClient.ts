@@ -296,6 +296,14 @@ export class SidecarClient {
     this.send({ type: "tab.destroy", tabId });
   }
 
+  sendBashExecute(tabId: string, id: string, command: string): void {
+    this.send({ type: "bash.execute", tabId, id, command });
+  }
+
+  sendInstructionRefine(tabId: string, instruction: string, existingInstructions: string): void {
+    this.send({ type: "instruction.refine", tabId, instruction, existingInstructions });
+  }
+
   // ── HTTP fetch methods ──────────────────────────────────
 
   async fetchSettings(): Promise<Record<string, unknown>> {

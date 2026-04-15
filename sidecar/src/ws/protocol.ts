@@ -147,6 +147,18 @@ export interface TabDestroyMessage extends ClientMessageBase {
   type: 'tab.destroy';
 }
 
+export interface BashExecuteMessage extends ClientMessageBase {
+  type: 'bash.execute';
+  id: string;
+  command: string;
+}
+
+export interface InstructionRefineMessage extends ClientMessageBase {
+  type: 'instruction.refine';
+  instruction: string;
+  existingInstructions: string;
+}
+
 export type ClientMessage =
   | QueryMessage
   | InterruptMessage
@@ -167,7 +179,9 @@ export type ClientMessage =
   | PlanFeedbackMessage
   | AskUserAnswerMessage
   | AskUserDismissMessage
-  | TabDestroyMessage;
+  | TabDestroyMessage
+  | BashExecuteMessage
+  | InstructionRefineMessage;
 
 // ── Server -> Client messages ────────────────────────────
 
@@ -321,6 +335,23 @@ export interface ConnectionReadyMessage extends ServerMessageBase {
   version: string;
 }
 
+export interface BashResultMessage extends ServerMessageBase {
+  type: 'bash.result';
+  id: string;
+  command: string;
+  output: string;
+  exitCode: number;
+  error?: string;
+}
+
+export interface InstructionRefineResultMessage extends ServerMessageBase {
+  type: 'instruction.refine_result';
+  success: boolean;
+  refinedInstruction?: string;
+  clarification?: string;
+  error?: string;
+}
+
 export type ServerMessage =
   | StreamTextMessage
   | StreamThinkingMessage
@@ -345,4 +376,6 @@ export type ServerMessage =
   | McpListResultMessage
   | CommandListResultMessage
   | NotificationMessage
-  | ConnectionReadyMessage;
+  | ConnectionReadyMessage
+  | BashResultMessage
+  | InstructionRefineResultMessage;

@@ -311,6 +311,20 @@ async function routeMessage(
         services.sessionRouter.destroy(tabId);
         break;
 
+      case 'bash.execute':
+        void handleBashExecute(ws, message, services);
+        break;
+
+      case 'instruction.refine':
+        // Instruction refinement uses a cold-start agent query
+        send(ws, {
+          type: 'instruction.refine_result',
+          tabId,
+          success: false,
+          error: 'Instruction refinement not yet implemented in sidecar',
+        });
+        break;
+
       default:
         console.log(`[ws] unhandled message type: ${(message as { type: string }).type}`);
     }
@@ -405,4 +419,62 @@ function planDecisionToExitDecision(decision: PlanDecision): ExitPlanModeDecisio
     case 'feedback':
       return { type: 'feedback', text: decision.text };
   }
+}
+
+/**
+ * Handle direct bash command execution (bang-bash mode).
+ *
+ * This intentionally uses `exec` with a shell because the feature's
+ * purpose is to let the *user* run arbitrary shell commands (pipes,
+ * redirects, globs, etc.) — the same pattern as Obsidian's
+ * BangBashService. The command string originates from explicit user
+ * input via the `!` prefix, not from untrusted external data.
+ */
+async function handleBashExecute(
+  ws: WebSocket,
+  message: { tabId: string; id: string; command: string },
+  services: SidecarServices,
+): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic import for Node built-in
+  const { exec } = await import('node:child_process');
+  const tabId = message.tabId;
+
+  const TIMEOUT_MS = 30_000;
+  const MAX_BUFFER = 1024 * 1024; // 1MB
+
+  return new Promise<void>((resolve) => {
+    exec(message.command, {
+      cwd: services.graphRoot,
+      timeout: TIMEOUT_MS,
+      maxBuffer: MAX_BUFFER,
+      shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/bash',
+    }, (error, stdout, stderr) => {
+      let exitCode = 0;
+      let errorMsg: string | undefined;
+
+      if (error && 'killed' in error && error.killed) {
+        const isMaxBuffer = 'code' in error && (error.code as unknown) === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER';
+        exitCode = 124;
+        errorMsg = isMaxBuffer
+          ? 'Output exceeded maximum buffer size (1MB)'
+          : `Command timed out after ${TIMEOUT_MS / 1000}s`;
+      } else if (error) {
+        exitCode = typeof error.code === 'number' ? error.code : 1;
+      }
+
+      const output = [stdout ?? '', stderr ?? ''].filter(Boolean).join('\n').trimEnd();
+
+      send(ws, {
+        type: 'bash.result',
+        tabId,
+        id: message.id,
+        command: message.command,
+        output,
+        exitCode,
+        error: errorMsg,
+      });
+
+      resolve();
+    });
+  });
 }
