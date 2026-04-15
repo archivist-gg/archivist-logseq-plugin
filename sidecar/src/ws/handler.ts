@@ -10,6 +10,7 @@ import type { WebSocket } from 'ws';
 
 import type {
   ClientMessage,
+  QueryMessage,
   ServerMessage,
   ConnectionReadyMessage,
 } from './protocol.js';
@@ -111,6 +112,8 @@ async function routeMessage(
   message: ClientMessage,
   services: SidecarServices,
 ): Promise<void> {
+  const tabId = message.tabId;
+
   try {
     switch (message.type) {
       case 'query':
@@ -118,7 +121,7 @@ async function routeMessage(
         break;
 
       case 'interrupt':
-        services.claudian.cancel();
+        services.sessionRouter.get(tabId)?.cancel();
         break;
 
       case 'approve':
@@ -224,6 +227,10 @@ async function routeMessage(
         services.pendingAskUser.resolve(message.toolCallId, null);
         break;
 
+      case 'tab.destroy':
+        services.sessionRouter.destroy(tabId);
+        break;
+
       default:
         console.log(`[ws] unhandled message type: ${(message as { type: string }).type}`);
     }
@@ -236,16 +243,18 @@ async function routeMessage(
 
 async function handleQuery(
   ws: WebSocket,
-  message: Extract<ClientMessage, { type: 'query' }>,
+  message: QueryMessage,
   services: SidecarServices,
 ): Promise<void> {
   try {
+    const claudian = services.sessionRouter.getOrCreate(message.tabId);
+
     // If a sessionId is provided, ensure the query is ready with that session
     if (message.sessionId) {
-      await services.claudian.ensureReady({ sessionId: message.sessionId });
+      await claudian.ensureReady({ sessionId: message.sessionId });
     }
 
-    const generator = services.claudian.query(
+    const generator = claudian.query(
       message.text,
       undefined, // images (handled separately if needed)
       undefined, // conversationHistory (managed by persistent query)
@@ -255,12 +264,13 @@ async function handleQuery(
     for await (const chunk of generator) {
       const serverMessage = chunkToMessage(chunk);
       if (serverMessage) {
+        serverMessage.tabId = message.tabId;
         send(ws, serverMessage);
       }
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Query failed';
-    send(ws, { type: 'stream.error', message: errorMessage });
-    send(ws, { type: 'stream.done' });
+    send(ws, { type: 'stream.error', message: errorMessage, tabId: message.tabId });
+    send(ws, { type: 'stream.done', tabId: message.tabId });
   }
 }
