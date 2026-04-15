@@ -417,7 +417,14 @@ async function handleQuery(
 
     const generator = claudian.query(
       message.text,
-      message.images, // forward attached images from client
+      message.images?.map((dataUrl, i) => ({
+        id: `img-${Date.now()}-${i}`,
+        name: `image-${i}.png`,
+        mediaType: 'image/png' as const,
+        data: dataUrl.replace(/^data:[^;]+;base64,/, ''),
+        size: 0,
+        source: 'paste' as const,
+      })),
       undefined, // conversationHistory (managed by persistent query)
       { mcpMentions: new Set<string>() },
     );
