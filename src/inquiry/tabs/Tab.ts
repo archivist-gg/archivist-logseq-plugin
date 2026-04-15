@@ -395,6 +395,7 @@ export function initializeTabControllers(
       client,
       doc,
       state,
+      renderer: tab.renderer ?? undefined,
       getHistoryDropdown: () => null,
       getWelcomeEl: () => dom.welcomeEl,
       setWelcomeEl: (el) => { dom.welcomeEl = el; },

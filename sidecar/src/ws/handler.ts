@@ -150,18 +150,55 @@ async function routeMessage(
         break;
       }
 
-      case 'session.resume':
-        // Session resume will be fully wired in integration task
-        console.log(`[ws] session.resume: ${message.sessionId}`);
+      case 'session.resume': {
+        const claudian = services.sessionRouter.getOrCreate(tabId);
+        await claudian.ensureReady({ sessionId: message.sessionId });
+        const conversation = await services.storage.sessions.loadConversation(message.sessionId);
+        send(ws, {
+          type: 'session.loaded',
+          conversation: conversation ?? { id: message.sessionId, messages: [] },
+          tabId,
+        });
         break;
+      }
 
-      case 'session.fork':
-        console.log(`[ws] session.fork: ${message.sessionId} at ${message.messageIndex}`);
+      case 'session.fork': {
+        const forkClaudian = services.sessionRouter.getOrCreate(tabId);
+        const forkConv = await services.storage.sessions.loadConversation(message.sessionId);
+        // Find the assistant UUID at the fork point for SDK resume
+        if (forkConv && forkConv.messages[message.messageIndex]) {
+          const forkMsg = forkConv.messages[message.messageIndex];
+          if (forkMsg.sdkAssistantUuid) {
+            forkClaudian.setPendingResumeAt(forkMsg.sdkAssistantUuid);
+          }
+        }
+        forkClaudian.setPendingForkSession(true);
+        await forkClaudian.ensureReady({ sessionId: message.sessionId });
+        send(ws, {
+          type: 'session.loaded',
+          conversation: forkConv ?? { id: message.sessionId, messages: [] },
+          tabId,
+        });
         break;
+      }
 
-      case 'session.rewind':
-        console.log(`[ws] session.rewind: ${message.sessionId} at ${message.messageIndex}`);
+      case 'session.rewind': {
+        const rewindClaudian = services.sessionRouter.getOrCreate(tabId);
+        const rewindConv = await services.storage.sessions.loadConversation(message.sessionId);
+        if (rewindConv && rewindConv.messages[message.messageIndex]) {
+          const targetMsg = rewindConv.messages[message.messageIndex];
+          if (targetMsg.sdkAssistantUuid) {
+            rewindClaudian.setPendingResumeAt(targetMsg.sdkAssistantUuid);
+          }
+        }
+        await rewindClaudian.ensureReady({ sessionId: message.sessionId });
+        send(ws, {
+          type: 'session.loaded',
+          conversation: rewindConv ?? { id: message.sessionId, messages: [] },
+          tabId,
+        });
         break;
+      }
 
       case 'settings.get': {
         const settings = services.getSettings();

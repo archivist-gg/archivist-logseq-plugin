@@ -234,6 +234,10 @@ export class ClaudianService {
     this.pendingResumeAt = uuid;
   }
 
+  setPendingForkSession(pending: boolean): void {
+    this.pendingForkSession = pending;
+  }
+
   /** One-shot: consumed on the next query, then cleared by routeMessage on session init. */
   applyForkState(conv: Pick<Conversation, 'sessionId' | 'sdkSessionId' | 'forkSource'>): string | null {
     const isPending = !conv.sessionId && !conv.sdkSessionId && !!conv.forkSource;

@@ -11,6 +11,7 @@
  */
 
 import type { SidecarClient } from '../SidecarClient';
+import type { MessageRenderer } from '../rendering/MessageRenderer';
 import type { ChatState } from '../state/ChatState';
 import type { ChatMessage, Conversation, ConversationMeta } from '../state/types';
 import { setIcon } from '../shared/icons';
@@ -25,6 +26,7 @@ export interface ConversationControllerDeps {
   client: SidecarClient;
   doc: Document;
   state: ChatState;
+  renderer?: MessageRenderer;
   getHistoryDropdown: () => HTMLElement | null;
   getWelcomeEl: () => HTMLElement | null;
   setWelcomeEl: (el: HTMLElement | null) => void;
@@ -223,7 +225,7 @@ export class ConversationController {
    * Called by the panel's onMessage listener.
    */
   onSessionLoaded(conversation: unknown): void {
-    const { state, doc } = this.deps;
+    const { state } = this.deps;
     const conv = conversation as Partial<Conversation>;
 
     if (conv.id) {
@@ -236,41 +238,35 @@ export class ConversationController {
       state.usage = conv.usage;
     }
 
-    // Re-render messages
-    const messagesEl = this.deps.getMessagesEl();
-    while (messagesEl.firstChild) messagesEl.removeChild(messagesEl.firstChild);
-
-    if (state.messages.length === 0) {
-      // Show welcome
-      const welcomeEl = doc.createElement('div');
-      welcomeEl.className = 'claudian-welcome';
-      const greetingEl = doc.createElement('div');
-      greetingEl.className = 'claudian-welcome-greeting';
-      greetingEl.textContent = this.getGreeting();
-      welcomeEl.appendChild(greetingEl);
-      const subtitleEl = doc.createElement('div');
-      subtitleEl.className = 'claudian-welcome-subtitle';
-      subtitleEl.textContent = 'What knowledge do you seek?';
-      welcomeEl.appendChild(subtitleEl);
-      messagesEl.appendChild(welcomeEl);
+    // Re-render messages using MessageRenderer (markdown, tool calls, etc.)
+    if (this.deps.renderer) {
+      const welcomeEl = this.deps.renderer.renderMessages(
+        state.messages,
+        () => this.getGreeting(),
+      );
       this.deps.setWelcomeEl(welcomeEl);
     } else {
-      // Render loaded messages
-      for (const msg of state.messages) {
-        const msgEl = doc.createElement('div');
-        msgEl.className = `claudian-message claudian-message-${msg.role}`;
-        msgEl.dataset.messageId = msg.id;
+      // Fallback: plain DOM rendering (no renderer wired yet)
+      const { doc } = this.deps;
+      const messagesEl = this.deps.getMessagesEl();
+      while (messagesEl.firstChild) messagesEl.removeChild(messagesEl.firstChild);
 
-        const contentEl = doc.createElement('div');
-        contentEl.className = 'claudian-message-content';
-        contentEl.textContent = msg.role === 'user'
-          ? (msg.displayContent ?? msg.content)
-          : msg.content;
-        msgEl.appendChild(contentEl);
-
-        messagesEl.appendChild(msgEl);
+      if (state.messages.length === 0) {
+        const welcomeEl = doc.createElement('div');
+        welcomeEl.className = 'claudian-welcome';
+        const greetingEl = doc.createElement('div');
+        greetingEl.className = 'claudian-welcome-greeting';
+        greetingEl.textContent = this.getGreeting();
+        welcomeEl.appendChild(greetingEl);
+        const subtitleEl = doc.createElement('div');
+        subtitleEl.className = 'claudian-welcome-subtitle';
+        subtitleEl.textContent = 'What knowledge do you seek?';
+        welcomeEl.appendChild(subtitleEl);
+        messagesEl.appendChild(welcomeEl);
+        this.deps.setWelcomeEl(welcomeEl);
+      } else {
+        this.deps.setWelcomeEl(null);
       }
-      this.deps.setWelcomeEl(null);
     }
 
     this.updateWelcomeVisibility();
