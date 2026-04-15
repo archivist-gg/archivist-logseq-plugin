@@ -6,8 +6,10 @@
 
 import { SidecarClient, ConnectionState } from './SidecarClient';
 import { ChatView } from './ui/ChatView';
+import { ToastRenderer } from './ui/ToastRenderer';
 import { setIcon, createIconEl } from './shared/icons';
 import type { EntityRegistry } from '../entities/entity-registry';
+import type { NotificationMessage } from './protocol';
 
 // Import CSS as a raw string — Vite handles this via the ?inline suffix.
 // We inject it into the host document <head> since the panel lives outside
@@ -23,6 +25,8 @@ export class InquiryPanel {
   private styleEl: HTMLStyleElement | null = null;
   private connectionIndicator: HTMLElement | null = null;
   private toolbarBtn: HTMLElement | null = null;
+  private toastRenderer: ToastRenderer | null = null;
+  private unsubscribeMessage: (() => void) | null = null;
 
   // ChatView content area — everything below the header/connection indicator
   private contentEl: HTMLElement | null = null;
@@ -106,10 +110,19 @@ export class InquiryPanel {
     // 6. Wire sidecar onReady — fires after WebSocket handshake + server greeting
     this.client.onReady(() => this.onSidecarReady());
 
-    // 7. Inject toolbar toggle button into Logseq header
+    // 7. Create toast renderer and subscribe to notification messages
+    this.toastRenderer = new ToastRenderer(this.hostDoc);
+    this.unsubscribeMessage = this.client.onMessage((msg) => {
+      if (msg.type === 'notification') {
+        const notif = msg as NotificationMessage;
+        this.toastRenderer?.show(notif.message, notif.notificationType);
+      }
+    });
+
+    // 8. Inject toolbar toggle button into Logseq header
     this.injectToolbarButton();
 
-    // 8. Start sidecar discovery (non-blocking, errors logged)
+    // 9. Start sidecar discovery (non-blocking, errors logged)
     const fixedPort = logseq.settings?.sidecarPort as number | undefined;
     this.client.discover(fixedPort && fixedPort > 0 ? fixedPort : undefined)
       .catch((err) => {
@@ -132,6 +145,12 @@ export class InquiryPanel {
     this.chatView?.destroy();
     this.chatView = null;
     this.chatViewReady = false;
+    if (this.unsubscribeMessage) {
+      this.unsubscribeMessage();
+      this.unsubscribeMessage = null;
+    }
+    this.toastRenderer?.destroy();
+    this.toastRenderer = null;
     this.panelEl.remove();
     this.styleEl?.remove();
     this.toolbarBtn?.remove();
