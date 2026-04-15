@@ -240,6 +240,10 @@ export class SidecarClient {
     this.send({ type: "session.rewind", tabId, sessionId, messageIndex });
   }
 
+  sendSessionRename(tabId: string, sessionId: string, title: string): void {
+    this.send({ type: "session.rename", tabId, sessionId, title });
+  }
+
   sendSettingsGet(tabId: string): void {
     this.send({ type: "settings.get", tabId });
   }

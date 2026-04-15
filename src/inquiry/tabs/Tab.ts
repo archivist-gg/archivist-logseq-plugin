@@ -20,6 +20,8 @@ import type {
   ApprovalRequestMessage,
   AskUserQuestionMessage,
   PlanModeRequestMessage,
+  SessionListResultMessage,
+  SessionLoadedMessage,
 } from '../protocol';
 import {
   ConversationController,
@@ -156,6 +158,11 @@ function buildTabDOM(doc: Document, contentEl: HTMLElement): TabDOMElements {
   messagesWrapperEl.className = 'claudian-messages-wrapper';
   contentEl.appendChild(messagesWrapperEl);
 
+  // History dropdown (positioned inside messages wrapper, hidden by default)
+  const historyDropdownEl = doc.createElement('div');
+  historyDropdownEl.className = 'claudian-history-menu';
+  messagesWrapperEl.appendChild(historyDropdownEl);
+
   // Messages area (inside wrapper)
   const messagesEl = doc.createElement('div');
   messagesEl.className = 'claudian-messages';
@@ -209,6 +216,7 @@ function buildTabDOM(doc: Document, contentEl: HTMLElement): TabDOMElements {
     navRowEl,
     contextRowEl,
     selectionIndicatorEl: null,
+    historyDropdownEl,
     eventCleanups: [],
   };
 }
@@ -400,8 +408,9 @@ export function initializeTabControllers(
       client,
       doc,
       state,
+      tabId: tab.id,
       renderer: tab.renderer ?? undefined,
-      getHistoryDropdown: () => null,
+      getHistoryDropdown: () => dom.historyDropdownEl,
       getWelcomeEl: () => dom.welcomeEl,
       setWelcomeEl: (el) => { dom.welcomeEl = el; },
       getMessagesEl: () => dom.messagesEl,
@@ -430,7 +439,7 @@ export function initializeTabControllers(
     },
   });
 
-  // Subscribe to tab-scoped approval/askuser/planmode messages
+  // Subscribe to tab-scoped messages (approval, askuser, planmode, session)
   const unsubTabMessages = client.onTabMessage(tab.id, (msg) => {
     if (msg.type === 'approval.request') {
       tab.controllers.inputController?.handleApprovalRequest(msg as ApprovalRequestMessage);
@@ -438,6 +447,12 @@ export function initializeTabControllers(
       tab.controllers.inputController?.handleAskUserQuestion(msg as AskUserQuestionMessage);
     } else if (msg.type === 'plan_mode.request') {
       tab.controllers.inputController?.handleExitPlanMode(msg as PlanModeRequestMessage);
+    } else if (msg.type === 'session.list_result') {
+      const listMsg = msg as SessionListResultMessage;
+      tab.controllers.conversationController?.onSessionListResult(listMsg.sessions);
+    } else if (msg.type === 'session.loaded') {
+      const loadedMsg = msg as SessionLoadedMessage;
+      tab.controllers.conversationController?.onSessionLoaded(loadedMsg.conversation);
     }
   });
   dom.eventCleanups.push(unsubTabMessages);

@@ -241,11 +241,11 @@ export class ChatView {
     void this.tabManager?.createTab();
   }
 
-  /** Request session history from the sidecar. */
+  /** Toggle the session history dropdown on the active tab. */
   showSessionHistory(): void {
     const activeTab = this.tabManager?.getActiveTab();
     if (activeTab) {
-      this.client.sendSessionList(activeTab.id);
+      activeTab.controllers.conversationController?.toggleHistoryDropdown();
     }
   }
 

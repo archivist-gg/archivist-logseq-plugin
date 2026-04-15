@@ -93,6 +93,12 @@ export interface SessionRewindMessage extends ClientMessageBase {
   messageIndex: number;
 }
 
+export interface SessionRenameMessage extends ClientMessageBase {
+  type: 'session.rename';
+  sessionId: string;
+  title: string;
+}
+
 export interface SettingsGetMessage extends ClientMessageBase {
   type: 'settings.get';
 }
@@ -157,6 +163,7 @@ export type ClientMessage =
   | SessionResumeMessage
   | SessionForkMessage
   | SessionRewindMessage
+  | SessionRenameMessage
   | SettingsGetMessage
   | SettingsUpdateMessage
   | McpListMessage

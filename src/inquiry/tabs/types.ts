@@ -136,6 +136,9 @@ export interface TabDOMElements {
 
   selectionIndicatorEl: HTMLElement | null;
 
+  /** History dropdown for conversation list (per-tab, positioned in messages wrapper). */
+  historyDropdownEl: HTMLElement | null;
+
   /** Cleanup functions for event listeners (prevents memory leaks). */
   eventCleanups: Array<() => void>;
 }

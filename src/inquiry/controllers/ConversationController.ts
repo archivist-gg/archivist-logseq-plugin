@@ -12,8 +12,9 @@
 
 import type { SidecarClient } from '../SidecarClient';
 import type { MessageRenderer } from '../rendering/MessageRenderer';
+import type { TitleGenerationService } from '../services/TitleGenerationService';
 import type { ChatState } from '../state/ChatState';
-import type { ChatMessage, Conversation, ConversationMeta } from '../state/types';
+import type { Conversation, ConversationMeta } from '../state/types';
 import { setIcon } from '../shared/icons';
 
 export interface ConversationCallbacks {
@@ -26,7 +27,9 @@ export interface ConversationControllerDeps {
   client: SidecarClient;
   doc: Document;
   state: ChatState;
+  tabId: string;
   renderer?: MessageRenderer;
+  titleGenerationService?: TitleGenerationService;
   getHistoryDropdown: () => HTMLElement | null;
   getWelcomeEl: () => HTMLElement | null;
   setWelcomeEl: (el: HTMLElement | null) => void;
@@ -80,7 +83,7 @@ export class ConversationController {
       if (force && state.isStreaming) {
         state.cancelRequested = true;
         state.bumpStreamGeneration();
-        client.sendInterrupt();
+        client.sendInterrupt(this.deps.tabId);
       }
 
       // Save current conversation if it has messages
@@ -179,7 +182,7 @@ export class ConversationController {
     }
 
     // Session with messages — request resume via WebSocket
-    this.deps.client.sendSessionResume(conversationId);
+    this.deps.client.sendSessionResume(this.deps.tabId, conversationId);
     this.callbacks.onConversationLoaded?.();
   }
 
@@ -207,7 +210,7 @@ export class ConversationController {
       this.deps.clearQueuedMessage();
 
       // Resume session via WebSocket
-      client.sendSessionResume(id);
+      client.sendSessionResume(this.deps.tabId, id);
 
       const dropdown = this.deps.getHistoryDropdown();
       if (dropdown) {
@@ -315,7 +318,7 @@ export class ConversationController {
       dropdown.classList.remove('visible');
     } else {
       // Request fresh session list from server
-      this.deps.client.sendSessionList();
+      this.deps.client.sendSessionList(this.deps.tabId);
       dropdown.classList.add('visible');
     }
   }
@@ -372,7 +375,7 @@ export class ConversationController {
 
       const iconEl = doc.createElement('div');
       iconEl.className = 'claudian-history-item-icon';
-      setIcon(iconEl, isCurrent ? 'message-square' : 'message-square');
+      setIcon(iconEl, isCurrent ? 'message-square-dot' : 'message-square');
       item.appendChild(iconEl);
 
       const content = doc.createElement('div');
@@ -407,6 +410,30 @@ export class ConversationController {
       const actions = doc.createElement('div');
       actions.className = 'claudian-history-item-actions';
 
+      // Title regeneration button
+      if (this.deps.titleGenerationService) {
+        const regenBtn = doc.createElement('button');
+        regenBtn.className = 'claudian-action-btn';
+        setIcon(regenBtn, 'refresh-cw');
+        regenBtn.setAttribute('aria-label', 'Regenerate title');
+        regenBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await this.regenerateTitle(conv.id);
+        });
+        actions.appendChild(regenBtn);
+      }
+
+      // Rename button
+      const renameBtn = doc.createElement('button');
+      renameBtn.className = 'claudian-action-btn';
+      setIcon(renameBtn, 'pencil');
+      renameBtn.setAttribute('aria-label', 'Rename');
+      renameBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.showRenameInput(item, conv.id, conv.title);
+      });
+      actions.appendChild(renameBtn);
+
       const deleteBtn = doc.createElement('button');
       deleteBtn.className = 'claudian-action-btn claudian-delete-btn';
       setIcon(deleteBtn, 'trash-2');
@@ -422,6 +449,72 @@ export class ConversationController {
       item.appendChild(actions);
       list.appendChild(item);
     }
+  }
+
+  /** Shows inline rename input for a conversation. */
+  private showRenameInput(item: HTMLElement, convId: string, currentTitle: string): void {
+    const titleEl = item.querySelector('.claudian-history-item-title') as HTMLElement;
+    if (!titleEl) return;
+
+    const { doc, client } = this.deps;
+    const input = doc.createElement('input');
+    input.type = 'text';
+    input.className = 'claudian-rename-input';
+    input.value = currentTitle;
+
+    titleEl.replaceWith(input);
+    input.focus();
+    input.select();
+
+    let finished = false;
+    const finishRename = () => {
+      if (finished) return;
+      finished = true;
+      const newTitle = input.value.trim() || currentTitle;
+      // Send rename to sidecar
+      client.sendSessionRename(this.deps.tabId, convId, newTitle);
+      // Update local cache immediately for responsiveness
+      const entry = this.conversationList.find(c => c.id === convId);
+      if (entry) entry.title = newTitle;
+      this.updateHistoryDropdown();
+    };
+
+    input.addEventListener('blur', finishRename);
+    input.addEventListener('keydown', (e) => {
+      // Check !e.isComposing for IME support (Chinese, Japanese, Korean, etc.)
+      if (e.key === 'Enter' && !e.isComposing) {
+        input.blur();
+      } else if (e.key === 'Escape' && !e.isComposing) {
+        input.value = currentTitle;
+        input.blur();
+      }
+    });
+  }
+
+  /** Regenerates AI title for a conversation. */
+  async regenerateTitle(conversationId: string): Promise<void> {
+    const titleService = this.deps.titleGenerationService;
+    if (!titleService) return;
+
+    // Find conversation in local list to get first message
+    const conv = this.conversationList.find(c => c.id === conversationId);
+    if (!conv) return;
+
+    // Use the title service to regenerate
+    await titleService.generateTitle(
+      conversationId,
+      conv.title, // Use current title as input (service generates from message content)
+      async (convId, result) => {
+        if (result.success) {
+          // Send rename to sidecar with the new title
+          this.deps.client.sendSessionRename(this.deps.tabId, convId, result.title);
+          // Update local cache
+          const entry = this.conversationList.find(c => c.id === convId);
+          if (entry) entry.title = result.title;
+          this.updateHistoryDropdown();
+        }
+      }
+    );
   }
 
   // ============================================
