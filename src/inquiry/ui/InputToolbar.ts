@@ -93,6 +93,9 @@ export class ModelSelector {
 
     this.buttonEl = this.doc.createElement('div');
     this.buttonEl.className = 'claudian-model-btn';
+    this.buttonEl.setAttribute('role', 'button');
+    this.buttonEl.setAttribute('aria-label', 'Select model');
+    this.buttonEl.setAttribute('tabindex', '0');
     this.container.appendChild(this.buttonEl);
     this.setReady(this.isReady);
     this.updateDisplay();
@@ -210,6 +213,9 @@ export class ThinkingBudgetSelector {
     const currentEl = this.doc.createElement('div');
     currentEl.className = 'claudian-thinking-current';
     currentEl.textContent = currentInfo?.label || 'High';
+    currentEl.setAttribute('role', 'button');
+    currentEl.setAttribute('aria-label', `Effort level: ${currentInfo?.label || 'High'}`);
+    currentEl.setAttribute('tabindex', '0');
     this.effortGearsEl.appendChild(currentEl);
 
     const optionsEl = this.doc.createElement('div');
@@ -451,6 +457,9 @@ export class ExternalContextSelector {
 
     const iconWrapper = this.doc.createElement('div');
     iconWrapper.className = 'claudian-external-context-icon-wrapper';
+    iconWrapper.setAttribute('role', 'button');
+    iconWrapper.setAttribute('aria-label', 'External contexts');
+    iconWrapper.setAttribute('tabindex', '0');
     this.container.appendChild(iconWrapper);
 
     this.iconEl = this.doc.createElement('div');
@@ -729,6 +738,9 @@ export class McpServerSelector {
 
     const iconWrapper = this.doc.createElement('div');
     iconWrapper.className = 'claudian-mcp-selector-icon-wrapper';
+    iconWrapper.setAttribute('role', 'button');
+    iconWrapper.setAttribute('aria-label', 'MCP servers');
+    iconWrapper.setAttribute('tabindex', '0');
     this.container.appendChild(iconWrapper);
 
     this.iconEl = this.doc.createElement('div');

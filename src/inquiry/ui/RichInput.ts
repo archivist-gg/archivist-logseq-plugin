@@ -454,6 +454,7 @@ export class SendButton {
     this.el = doc.createElement('button');
     this.el.className = 'archivist-send-btn';
     this.el.setAttribute('type', 'button');
+    this.el.setAttribute('aria-label', 'Send message');
     this.el.dataset.state = 'idle-empty';
     this.el.disabled = true;
     setIcon(this.el, 'arrow-up');
@@ -478,14 +479,17 @@ export class SendButton {
     switch (state) {
       case 'idle-empty':
         this.el.disabled = true;
+        this.el.setAttribute('aria-label', 'Send message');
         setIcon(this.el, 'arrow-up');
         break;
       case 'idle-ready':
         this.el.disabled = false;
+        this.el.setAttribute('aria-label', 'Send message');
         setIcon(this.el, 'arrow-up');
         break;
       case 'streaming':
         this.el.disabled = false;
+        this.el.setAttribute('aria-label', 'Stop generation');
         setIcon(this.el, 'square');
         break;
     }

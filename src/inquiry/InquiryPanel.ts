@@ -217,6 +217,7 @@ export class InquiryPanel {
     const btn = this.hostDoc.createElement('button');
     btn.className = 'archivist-inquiry-header-btn';
     btn.title = title;
+    btn.setAttribute('aria-label', title);
     setIcon(btn, iconName);
     return btn;
   }
@@ -253,6 +254,7 @@ export class InquiryPanel {
       const btn = this.hostDoc.createElement('button');
       btn.className = 'archivist-inquiry-toolbar-btn';
       btn.title = 'Toggle Claudian';
+      btn.setAttribute('aria-label', 'Toggle Claudian');
       setIcon(btn, 'bot');
       btn.addEventListener('click', () => this.toggle());
       toolbar.prepend(btn);

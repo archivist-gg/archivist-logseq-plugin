@@ -58,6 +58,7 @@ export class TabBar {
     const newTabBtn = doc.createElement('button');
     newTabBtn.className = 'archivist-tab-bar-new';
     newTabBtn.setAttribute('title', 'New tab');
+    newTabBtn.setAttribute('aria-label', 'New tab');
     setIcon(newTabBtn, 'plus');
     newTabBtn.addEventListener('click', () => callbacks.onNewTab());
     this.container.appendChild(newTabBtn);
@@ -130,6 +131,7 @@ export class TabBar {
     if (this.tabs.length > 1) {
       const closeBtn = doc.createElement('span');
       closeBtn.className = 'archivist-tab-close';
+      closeBtn.setAttribute('aria-label', 'Close tab');
       setIcon(closeBtn, 'x');
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
