@@ -6,69 +6,35 @@ import { renderDndEntityBlock, type CopyAndSaveCallback } from './DndEntityRende
 import { parseDndCodeFence } from './dndCodeFence';
 import * as yaml from 'js-yaml';
 
-// ── Tool name constants ──────────────────────────────────
-// Mirrors the Obsidian core/tools/toolNames module
+import {
+  TOOL_AGENT_OUTPUT,
+  TOOL_ASK_USER_QUESTION,
+  TOOL_BASH,
+  TOOL_EDIT,
+  TOOL_ENTER_PLAN_MODE,
+  TOOL_EXIT_PLAN_MODE,
+  TOOL_GLOB,
+  TOOL_GREP,
+  TOOL_LS,
+  TOOL_READ,
+  TOOL_SKILL,
+  TOOL_SUBAGENT,
+  TOOL_SUBAGENT_LEGACY,
+  TOOL_TODO_WRITE,
+  TOOL_TOOL_SEARCH,
+  TOOL_WEB_FETCH,
+  TOOL_WEB_SEARCH,
+  TOOL_WRITE,
+  isSubagentToolName,
+  isWriteEditTool,
+} from '../core/tools/toolNames';
 
-const TOOL_READ = 'Read';
-const TOOL_WRITE = 'Write';
-const TOOL_EDIT = 'Edit';
-const TOOL_BASH = 'Bash';
-const TOOL_GLOB = 'Glob';
-const TOOL_GREP = 'Grep';
-const TOOL_LS = 'LS';
-const TOOL_WEB_SEARCH = 'WebSearch';
-const TOOL_WEB_FETCH = 'WebFetch';
-const TOOL_SKILL = 'Skill';
-const TOOL_TOOL_SEARCH = 'ToolSearch';
-const TOOL_TODO_WRITE = 'TodoWrite';
-const TOOL_ENTER_PLAN_MODE = 'EnterPlanMode';
-const TOOL_EXIT_PLAN_MODE = 'ExitPlanMode';
-const TOOL_ASK_USER_QUESTION = 'AskUserQuestion';
-const TOOL_AGENT_OUTPUT = 'TaskOutput';
-const TOOL_SUBAGENT = 'Agent';
-const TOOL_SUBAGENT_LEGACY = 'Task';
+import { getToolIcon } from '../core/tools/toolIcons';
 
-// Exported constants and predicates for other renderers
+// Re-export constants and predicates for other renderers
 export { TOOL_AGENT_OUTPUT, TOOL_ASK_USER_QUESTION, TOOL_TODO_WRITE };
 export { TOOL_SUBAGENT, TOOL_SUBAGENT_LEGACY };
-
-const SUBAGENT_TOOL_NAMES = [TOOL_SUBAGENT, TOOL_SUBAGENT_LEGACY] as const;
-const WRITE_EDIT_TOOLS = [TOOL_WRITE, TOOL_EDIT] as const;
-
-export function isSubagentToolName(name: string): boolean {
-  return (SUBAGENT_TOOL_NAMES as readonly string[]).includes(name);
-}
-
-export function isWriteEditTool(name: string): boolean {
-  return (WRITE_EDIT_TOOLS as readonly string[]).includes(name);
-}
-
-export { getToolIcon };
-
-// ── Tool icon mapping ────────────────────────────────────
-
-function getToolIcon(name: string): string {
-  switch (name) {
-    case TOOL_READ: return 'file-text';
-    case TOOL_WRITE: return 'pencil';
-    case TOOL_EDIT: return 'file-edit';
-    case TOOL_BASH: return 'terminal';
-    case TOOL_GLOB: return 'search';
-    case TOOL_GREP: return 'search';
-    case TOOL_LS: return 'folder';
-    case TOOL_WEB_SEARCH: return 'globe';
-    case TOOL_WEB_FETCH: return 'globe';
-    case TOOL_SKILL: return 'zap';
-    case TOOL_TOOL_SEARCH: return 'wrench';
-    case TOOL_TODO_WRITE: return 'list';
-    case TOOL_ENTER_PLAN_MODE: return 'brain';
-    case TOOL_EXIT_PLAN_MODE: return 'brain';
-    case TOOL_ASK_USER_QUESTION: return 'message-square';
-    default:
-      if (name.startsWith('mcp__')) return 'wrench';
-      return 'wrench';
-  }
-}
+export { isSubagentToolName, isWriteEditTool, getToolIcon };
 
 // ── D&D entity tool detection ────────────────────────────
 
