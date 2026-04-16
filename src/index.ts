@@ -1,4 +1,5 @@
 import "@logseq/libs";
+import yaml from "js-yaml";
 import { parseMonster } from "./parsers/monster-parser";
 import { parseSpell } from "./parsers/spell-parser";
 import { parseItem } from "./parsers/item-parser";
@@ -19,11 +20,17 @@ import { findBlockUuid, getCompendiumContext } from "./edit/block-utils";
 import type { CompendiumContext } from "./edit/block-utils";
 import { renderSideButtons, wireSideButtonEvents } from "./edit/side-buttons";
 import type { SideButtonCallbacks } from "./edit/side-buttons";
-import { showCompendiumPicker } from "./edit/compendium-picker";
+import {
+  showCreateCompendiumModal,
+  showCompendiumSelectModal,
+  showSaveAsNewModal,
+} from "./edit/compendium-modals";
 import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edit-render";
 import { renderSpellEditMode, wireSpellEditEvents } from "./edit/spell-edit-render";
 import { renderItemEditMode, wireItemEditEvents } from "./edit/item-edit-render";
 import { startInlineTagObserver } from "./extensions/inline-tag-observer";
+import { InquiryPanel } from "./inquiry/InquiryPanel";
+import { SidecarClient } from "./inquiry/SidecarClient";
 
 type ParseResult<T> =
   | { success: true; data: T }
@@ -32,11 +39,16 @@ type ParseResult<T> =
 export interface EditCallbacks {
   onSave: (yaml: string) => Promise<void>;
   onSaveAsNew: (yaml: string, entityName: string) => Promise<void>;
+  onSaveToCompendium: (yaml: string, entityName: string) => Promise<void>;
   onCancel: () => void;
 }
 
 let managerRef: CompendiumManager | null = null;
 let registryRef: EntityRegistry | null = null;
+
+function getHostDoc(): Document {
+  return parent?.document ?? top?.document ?? document;
+}
 
 /**
  * Creates a stateful fenced code renderer for Logseq's Experiments API.
@@ -165,6 +177,7 @@ function createStatefulBlockRenderer(
         },
         onSave: () => {}, // handled by edit callbacks
         onSaveAsNew: () => {}, // handled by edit callbacks
+        onSaveToCompendium: () => {}, // handled by edit callbacks
         onCancel: () => setMode("view"),
         onDeleteBlock: async () => {
           const uuid = blockUuid || (containerRef.current ? findBlockUuid(containerRef.current) : null);
@@ -209,19 +222,76 @@ function createStatefulBlockRenderer(
         },
         onSaveAsNew: async (yaml: string, entityName: string) => {
           if (!managerRef) return;
-          const el = containerRef.current;
-          if (!el) return;
-          // Show compendium picker
+          const hostDoc = getHostDoc();
           const compendiums = managerRef.getWritable();
+
           if (compendiums.length === 0) {
-            await logseq.UI.showMsg("No writable compendiums available", "warning");
-            return;
-          }
-          if (compendiums.length === 1) {
+            showCreateCompendiumModal({
+              hostDoc,
+              onCreate: async (name, description) => {
+                const comp = await managerRef!.create(name, description || `${name} compendium`, true, false);
+                await logseq.UI.showMsg(`Created compendium: ${name}`, "success");
+                await saveToCompendium(comp, yaml, entityName);
+              },
+            });
+          } else if (compendiums.length === 1) {
             await saveToCompendium(compendiums[0], yaml, entityName);
           } else {
-            showCompendiumPicker(el, compendiums, async (comp) => {
-              await saveToCompendium(comp, yaml, entityName);
+            showCompendiumSelectModal({
+              hostDoc,
+              compendiums,
+              onSelect: async (comp) => {
+                await saveToCompendium(comp, yaml, entityName);
+              },
+              onCreateNew: () => {
+                showCreateCompendiumModal({
+                  hostDoc,
+                  onCreate: async (name, description) => {
+                    const comp = await managerRef!.create(name, description || `${name} compendium`, true, false);
+                    await logseq.UI.showMsg(`Created compendium: ${name}`, "success");
+                    await saveToCompendium(comp, yaml, entityName);
+                  },
+                });
+              },
+            });
+          }
+        },
+        onSaveToCompendium: async (yaml: string, entityName: string) => {
+          if (!managerRef) return;
+          const hostDoc = getHostDoc();
+          const compendiums = managerRef.getWritable();
+
+          const doSave = async (comp: { name: string }, finalName: string) => {
+            await saveToCompendium(comp, yaml, finalName);
+          };
+
+          if (compendiums.length === 0) {
+            showCreateCompendiumModal({
+              hostDoc,
+              onCreate: async (name, description) => {
+                const comp = await managerRef!.create(name, description || `${name} compendium`, true, false);
+                await logseq.UI.showMsg(`Created compendium: ${name}`, "success");
+                await doSave(comp, entityName);
+              },
+            });
+          } else {
+            showSaveAsNewModal({
+              hostDoc,
+              compendiums,
+              defaultName: entityName,
+              onSave: async (comp, finalName) => {
+                await doSave(comp, finalName);
+              },
+              onCreateNew: () => {
+                showCreateCompendiumModal({
+                  hostDoc,
+                  onCreate: async (name, description) => {
+                    const comp = await managerRef!.create(name, description || `${name} compendium`, true, false);
+                    await logseq.UI.showMsg(`Created compendium: ${name}`, "success");
+                    await doSave(comp, entityName);
+                  },
+                });
+              },
             });
           }
         },
@@ -325,6 +395,20 @@ async function main() {
       title: "Dice Animation Duration (ms)",
       description: "How long the 3D dice overlay stays visible after dice stop rolling. Set to 0 to require a click to dismiss.",
     },
+    {
+      key: "sidecarPort",
+      type: "number",
+      default: 0,
+      title: "Sidecar Port",
+      description: "Fixed sidecar port (0 = auto-discover)",
+    },
+    {
+      key: "ttrpgRootDir",
+      type: "string",
+      default: "/",
+      title: "TTRPG Root Directory",
+      description: "Root directory for D&D campaign files. The AI searches within this directory first. Use '/' for the entire graph.",
+    },
   ]);
 
   // Register fenced code block renderers
@@ -420,6 +504,52 @@ entries:
     console.warn("[archivist] Inline tag observer setup failed (cross-origin?):", e);
   }
 
+  // --- Phase 6: Inquiry / Claudian AI Chat ---
+  let inquiryPanel: InquiryPanel | null = null;
+  try {
+    const hostDoc = parent?.document ?? top?.document ?? document;
+    const sidecarClient = new SidecarClient();
+    inquiryPanel = new InquiryPanel(hostDoc, sidecarClient, registry, async (entityType, yamlSource, name) => {
+      if (!managerRef) return undefined;
+      const data = yaml.load(yamlSource) as Record<string, unknown>;
+      if (!data || typeof data !== 'object') return undefined;
+
+      const writable = managerRef.getWritable();
+      if (writable.length === 0) {
+        return new Promise<{ pageName: string } | undefined>((resolve) => {
+          showCreateCompendiumModal({
+            hostDoc: getHostDoc(),
+            onCreate: async (compName, description) => {
+              const comp = await managerRef!.create(compName, description || `${compName} compendium`, true, false);
+              const entity = await managerRef!.saveEntity(comp.name, entityType, { ...data, name });
+              resolve({ pageName: entity.filePath });
+              logseq.UI.showMsg(`Saved "${name}" to ${comp.name}`, "success");
+            },
+            onCancel: () => resolve(undefined),
+          });
+        });
+      }
+      const comp = writable[0];
+      const entity = await managerRef.saveEntity(comp.name, entityType, { ...data, name });
+      logseq.UI.showMsg(`Saved "${name}" to ${comp.name}`, "success");
+      return { pageName: entity.filePath };
+    });
+    inquiryPanel.init();
+    console.log("[archivist] Inquiry panel initialized");
+  } catch (e) {
+    console.warn("[archivist] Inquiry panel setup failed:", e);
+  }
+
+  logseq.App.registerCommandPalette(
+    { key: "toggle-inquiry", label: "Toggle Archivist Inquiry", keybinding: { binding: "mod+shift+i" } },
+    () => { inquiryPanel?.toggle(); },
+  );
+
+  logseq.App.registerCommandPalette(
+    { key: "new-inquiry-session", label: "Archivist Inquiry: New Session" },
+    () => { inquiryPanel?.newSession(); },
+  );
+
   logseq.App.registerCommandPalette(
     { key: "archivist-import-srd", label: "Archivist: Import SRD Compendium" },
     async () => {
@@ -463,7 +593,7 @@ entries:
     async () => { await showSearch(); },
   );
 
-  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4)");
+  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4 + 6)");
 }
 
 logseq.ready(main).catch(console.error);

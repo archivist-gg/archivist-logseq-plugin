@@ -17,6 +17,7 @@ export interface SideButtonCallbacks {
   onEdit: () => void;
   onSave: () => void;
   onSaveAsNew: () => void;
+  onSaveToCompendium: () => void;
   onCancel: () => void;
   onDeleteBlock: () => void;
   onDeleteEntity?: () => void;
@@ -28,12 +29,15 @@ export function renderSideButtons(config: SideButtonConfig): string {
 
   if (state === "editing") {
     if (compendiumContext) {
+      // Compendium entity editing
       if (!compendiumContext.readonly) {
         buttons += sideBtn("save", "check", "archivist-side-btn-save");
       }
-      buttons += sideBtn("save-as-new", "plus", "archivist-side-btn-save-as-new");
+      buttons += sideBtn("save-as-new", "save-plus", "archivist-side-btn-save-as-new");
     } else {
+      // Regular code block editing
       buttons += sideBtn("save", "check", "archivist-side-btn-save");
+      buttons += sideBtn("save-to-compendium", "book-plus", "archivist-side-btn-save-to-compendium");
     }
     buttons += sideBtn("cancel", "x", "archivist-side-btn-cancel");
   } else {
@@ -82,6 +86,7 @@ export function wireSideButtonEvents(
       case "edit": callbacks.onEdit(); break;
       case "save": callbacks.onSave(); break;
       case "save-as-new": callbacks.onSaveAsNew(); break;
+      case "save-to-compendium": callbacks.onSaveToCompendium(); break;
       case "cancel": callbacks.onCancel(); break;
       case "trash": handleTrashClick(container, callbacks); break;
       case "cancel-delete": closeDeleteMenu(container); break;

@@ -1,0 +1,49 @@
+import { tool } from "@anthropic-ai/claude-agent-sdk";
+import { searchSrdInput, getSrdEntityInput } from "../schemas/srd-schema.js";
+import type { SrdStore } from "../srd/srd-store.js";
+
+export function createSrdTools(store: SrdStore) {
+  const searchSrdTool = tool(
+    "search_srd",
+    "Search the D&D 5e SRD database for monsters, spells, magic items, armor, weapons, feats, conditions, classes, or backgrounds by name. Returns ranked summary results.",
+    searchSrdInput,
+    async ({ query, entity_type, limit }) => {
+      const results = store.search(query, entity_type, limit);
+      const summary = results.map((r) => ({
+        slug: r.slug,
+        name: r.name,
+        entityType: r.entityType,
+      }));
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(summary) }],
+      };
+    },
+  );
+
+  const getSrdEntityTool = tool(
+    "get_srd_entity",
+    "Get complete details for a specific D&D 5e SRD entity by slug. Returns the full stat block / spell / item data. Falls back to name search if slug not found.",
+    getSrdEntityInput,
+    async ({ slug, name, entity_type }) => {
+      // Try slug first
+      let entity = store.getBySlug(slug);
+
+      // Fall back to name-based lookup
+      if (!entity && name) {
+        entity = store.getByName(name, entity_type) ?? undefined;
+      }
+
+      if (!entity) {
+        return {
+          content: [{ type: "text" as const, text: `Entity "${slug}" not found in SRD.` }],
+          isError: true,
+        };
+      }
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(entity.data) }],
+      };
+    },
+  );
+
+  return { searchSrdTool, getSrdEntityTool };
+}

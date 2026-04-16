@@ -191,6 +191,15 @@ const ICON_PATHS: Record<string, string> = {
     '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>' +
     '<path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/>' +
     '<path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
+  "save-plus":
+    '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>' +
+    '<path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/>' +
+    '<path d="M7 3v4a1 1 0 0 0 1 1h7"/>' +
+    '<circle cx="19" cy="19" r="4" fill="#f0ddbd" stroke="currentColor" stroke-width="2"/>' +
+    '<path d="M19 17v4"/><path d="M17 19h4"/>',
+  "book-plus":
+    '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/>' +
+    '<path d="M9 10h6"/><path d="M12 7v6"/>',
 };
 
 export function lucideIcon(name: string): string {

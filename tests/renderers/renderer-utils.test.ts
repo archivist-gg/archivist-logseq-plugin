@@ -88,6 +88,24 @@ describe("lucideIcon", () => {
   it("returns empty string for unknown icons", () => {
     expect(lucideIcon("nonexistent")).toBe("");
   });
+
+  it("renders save-plus icon with floppy disk and plus overlay", () => {
+    const html = lucideIcon("save-plus");
+    expect(html).toContain("<svg");
+    expect(html).toContain("archivist-icon");
+    expect(html).toContain("<path");
+  });
+
+  it("renders book-plus icon", () => {
+    const html = lucideIcon("book-plus");
+    expect(html).toContain("<svg");
+    expect(html).toContain("archivist-icon");
+    expect(html).toContain("<path");
+  });
+
+  it("returns empty string for unknown icon", () => {
+    expect(lucideIcon("nonexistent-icon")).toBe("");
+  });
 });
 
 describe("convert5eToolsTags", () => {
