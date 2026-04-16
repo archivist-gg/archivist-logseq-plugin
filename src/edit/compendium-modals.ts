@@ -11,10 +11,11 @@ const NEW_KEY = "__new__";
 export interface CreateCompendiumModalOptions {
   hostDoc: Document;
   onCreate: (name: string, description: string) => void;
+  onCancel?: () => void;
 }
 
 export function showCreateCompendiumModal(options: CreateCompendiumModalOptions): void {
-  const { hostDoc, onCreate } = options;
+  const { hostDoc, onCreate, onCancel } = options;
 
   let nameInput: HTMLInputElement;
   let descInput: HTMLInputElement;
@@ -48,6 +49,7 @@ export function showCreateCompendiumModal(options: CreateCompendiumModalOptions)
       close();
       onCreate(name, descInput.value.trim());
     },
+    onCancel,
   });
 }
 

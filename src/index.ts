@@ -526,6 +526,7 @@ entries:
               await logseq.UI.showMsg(`Saved "${name}" to ${comp.name}`, "success");
               resolve(entity.slug);
             },
+            onCancel: () => resolve(undefined),
           });
         });
       }
