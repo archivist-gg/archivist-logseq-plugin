@@ -171,6 +171,11 @@ export interface InstructionRefineMessage extends ClientMessageBase {
   existingInstructions: string;
 }
 
+export interface ArchivistSettingsMessage extends ClientMessageBase {
+  type: 'archivist.settings';
+  ttrpgRootDir: string;
+}
+
 export type ClientMessage =
   | QueryMessage
   | InterruptMessage
@@ -195,7 +200,8 @@ export type ClientMessage =
   | AskUserDismissMessage
   | TabDestroyMessage
   | BashExecuteMessage
-  | InstructionRefineMessage;
+  | InstructionRefineMessage
+  | ArchivistSettingsMessage;
 
 // ── Server -> Client messages ────────────────────────────
 

@@ -334,6 +334,13 @@ async function main() {
       title: "Sidecar Port",
       description: "Fixed sidecar port (0 = auto-discover)",
     },
+    {
+      key: "ttrpgRootDir",
+      type: "string",
+      default: "/",
+      title: "TTRPG Root Directory",
+      description: "Root directory for D&D campaign files. The AI searches within this directory first. Use '/' for the entire graph.",
+    },
   ]);
 
   // Register fenced code block renderers

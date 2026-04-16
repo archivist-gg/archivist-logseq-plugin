@@ -99,7 +99,11 @@ export class InquiryPanel {
     this.panelEl.appendChild(this.connectionIndicator);
     this.panelEl.appendChild(this.contentEl);
 
-    // 4. Append to host document
+    // 4. Resize handle on the left edge of the panel
+    this.initResizer();
+
+    // 5. Append panel as sibling of #main-container inside #app-container
+    //    This makes it a true sidebar that pushes content, not an overlay.
     const appContainer = this.hostDoc.getElementById('app-container')
       || this.hostDoc.body;
     appContainer.appendChild(this.panelEl);
@@ -168,6 +172,10 @@ export class InquiryPanel {
     if (this.chatViewReady || !this.contentEl) return;
 
     console.log('[archivist] Sidecar ready — initializing ChatView');
+
+    // Send archivist D&D settings to sidecar
+    const ttrpgRootDir = (logseq.settings?.ttrpgRootDir as string) || '/';
+    this.client.sendArchivistSettings('system', ttrpgRootDir);
 
     this.chatView = new ChatView({
       doc: this.hostDoc,
@@ -245,12 +253,56 @@ export class InquiryPanel {
     this.connectionIndicator.appendChild(label);
   }
 
+  private initResizer(): void {
+    const MIN_WIDTH = 300;
+    const MAX_WIDTH = 700;
+    const resizer = this.hostDoc.createElement('span');
+    resizer.className = 'archivist-inquiry-resizer';
+    this.panelEl.appendChild(resizer);
+
+    let startX = 0;
+    let startWidth = 0;
+
+    const onPointerMove = (e: PointerEvent) => {
+      const delta = startX - e.clientX;
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta));
+      this.hostDoc.documentElement.style.setProperty('--archivist-panel-width', `${newWidth}px`);
+    };
+
+    const onPointerUp = () => {
+      this.panelEl.classList.remove('archivist-panel-resizing');
+      this.hostDoc.body.classList.remove('archivist-resizing-buf');
+      this.hostDoc.removeEventListener('pointermove', onPointerMove);
+      this.hostDoc.removeEventListener('pointerup', onPointerUp);
+      const width = this.panelEl.getBoundingClientRect().width;
+      try { localStorage.setItem('archivist-panel-width', `${Math.round(width)}px`); } catch { /* */ }
+    };
+
+    resizer.addEventListener('pointerdown', (e: PointerEvent) => {
+      e.preventDefault();
+      startX = e.clientX;
+      startWidth = this.panelEl.getBoundingClientRect().width;
+      this.panelEl.classList.add('archivist-panel-resizing');
+      this.hostDoc.body.classList.add('archivist-resizing-buf');
+      this.hostDoc.addEventListener('pointermove', onPointerMove);
+      this.hostDoc.addEventListener('pointerup', onPointerUp);
+    });
+
+    // Restore saved width
+    try {
+      const saved = localStorage.getItem('archivist-panel-width');
+      if (saved) this.hostDoc.documentElement.style.setProperty('--archivist-panel-width', saved);
+    } catch { /* */ }
+  }
+
   private injectToolbarButton(): void {
     // Find Logseq's toolbar area and inject a toggle button.
     // The '.cp__header > .r' selector targets the right-side action area
     // in Logseq's top header bar.
     const toolbar = this.hostDoc.querySelector('.cp__header > .r');
     if (toolbar) {
+      // Remove any stale button from a previous plugin load
+      toolbar.querySelector('.archivist-inquiry-toolbar-btn')?.remove();
       const btn = this.hostDoc.createElement('button');
       btn.className = 'archivist-inquiry-toolbar-btn';
       btn.title = 'Toggle Claudian';

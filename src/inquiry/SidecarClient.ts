@@ -304,6 +304,10 @@ export class SidecarClient {
     this.send({ type: "instruction.refine", tabId, instruction, existingInstructions });
   }
 
+  sendArchivistSettings(tabId: string, ttrpgRootDir: string): void {
+    this.send({ type: "archivist.settings", tabId, ttrpgRootDir });
+  }
+
   sendTitleGenerate(tabId: string, conversationId: string, userMessage: string): void {
     this.send({ type: "title.generate", tabId, conversationId, userMessage });
   }
