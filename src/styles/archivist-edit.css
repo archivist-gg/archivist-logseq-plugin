@@ -1076,7 +1076,7 @@
   top: 1px;
   width: 5px;
   height: 9px;
-  border: solid var(--d5e-parchment, #fdf1dc);
+  border: solid var(--d5e-parchment, #f0ddbd);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
@@ -1554,7 +1554,7 @@
 .archivist-overlay-dialog {
   width: 100%;
   max-width: 400px;
-  background: #fdf1dc;
+  background: #f0ddbd;
   border: 1px dashed #d9c484;
   border-radius: 6px;
   padding: 20px;
@@ -1595,7 +1595,7 @@
   font-size: 13px;
   font-family: "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
   color: #191813;
-  background: #fdf1dc;
+  background: #f0ddbd;
   border: 1px dashed #d9c484;
   border-radius: 4px;
   box-sizing: border-box;
@@ -1626,7 +1626,7 @@
   border: 1px solid #d9c484;
   border-radius: 4px;
   cursor: pointer;
-  background: #fdf1dc;
+  background: #f0ddbd;
   color: #191813;
 }
 
@@ -1636,7 +1636,7 @@
 
 .archivist-overlay-btn-primary {
   background: #922610;
-  color: #fdf1dc;
+  color: #f0ddbd;
   border-color: #922610;
 }
 

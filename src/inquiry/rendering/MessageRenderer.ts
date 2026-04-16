@@ -272,7 +272,7 @@ export class MessageRenderer {
 
     const hintSpan = this.doc.createElement('span');
     hintSpan.className = 'claudian-interrupted-hint';
-    hintSpan.textContent = ' \u00B7 What should Claudian do instead?';
+    hintSpan.textContent = ' \u00B7 What should Archivist do instead?';
     textEl.appendChild(hintSpan);
   }
 

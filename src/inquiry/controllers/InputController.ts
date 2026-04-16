@@ -361,7 +361,7 @@ export class InputController {
     const didCancel = state.cancelRequested;
     if (didCancel) {
       void streamController.appendText(
-        '\n\n<span class="claudian-interrupted">Interrupted</span> <span class="claudian-interrupted-hint">· What should Claudian do instead?</span>'
+        '\n\n<span class="claudian-interrupted">Interrupted</span> <span class="claudian-interrupted-hint">· What should Archivist do instead?</span>'
       );
     }
 

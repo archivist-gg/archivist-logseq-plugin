@@ -516,15 +516,14 @@ entries:
 
       const writable = managerRef.getWritable();
       if (writable.length === 0) {
-        return new Promise<string | undefined>((resolve) => {
+        return new Promise<{ pageName: string } | undefined>((resolve) => {
           showCreateCompendiumModal({
             hostDoc: getHostDoc(),
             onCreate: async (compName, description) => {
               const comp = await managerRef!.create(compName, description || `${compName} compendium`, true, false);
-              await logseq.UI.showMsg(`Created compendium: ${compName}`, "success");
               const entity = await managerRef!.saveEntity(comp.name, entityType, { ...data, name });
-              await logseq.UI.showMsg(`Saved "${name}" to ${comp.name}`, "success");
-              resolve(entity.slug);
+              resolve({ pageName: entity.filePath });
+              logseq.UI.showMsg(`Saved "${name}" to ${comp.name}`, "success");
             },
             onCancel: () => resolve(undefined),
           });
@@ -532,8 +531,8 @@ entries:
       }
       const comp = writable[0];
       const entity = await managerRef.saveEntity(comp.name, entityType, { ...data, name });
-      await logseq.UI.showMsg(`Saved "${name}" to ${comp.name}`, "success");
-      return entity.slug;
+      logseq.UI.showMsg(`Saved "${name}" to ${comp.name}`, "success");
+      return { pageName: entity.filePath };
     });
     inquiryPanel.init();
     console.log("[archivist] Inquiry panel initialized");
@@ -542,12 +541,12 @@ entries:
   }
 
   logseq.App.registerCommandPalette(
-    { key: "toggle-inquiry", label: "Toggle Claudian", keybinding: { binding: "mod+shift+i" } },
+    { key: "toggle-inquiry", label: "Toggle Archivist Inquiry", keybinding: { binding: "mod+shift+i" } },
     () => { inquiryPanel?.toggle(); },
   );
 
   logseq.App.registerCommandPalette(
-    { key: "new-inquiry-session", label: "Claudian: New Session" },
+    { key: "new-inquiry-session", label: "Archivist Inquiry: New Session" },
     () => { inquiryPanel?.newSession(); },
   );
 

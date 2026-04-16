@@ -95,11 +95,11 @@ const ICONS: Record<string, string> = {
 export function setIcon(el: Element, iconName: string): void {
   const svg = ICONS[iconName];
   if (svg) {
-    // Safe: SVGs are hardcoded trusted strings, not user-supplied content
-    el.innerHTML = svg;  // eslint-disable-line no-unsanitized/property
-  } else {
-    el.textContent = iconName;
+    // Safe: SVGs are hardcoded trusted strings from Lucide, not user-supplied content
+    // eslint-disable-next-line no-unsanitized/property
+    el.innerHTML = svg;
   }
+  // Unknown icons render as empty — never show raw icon names as text
 }
 
 /**

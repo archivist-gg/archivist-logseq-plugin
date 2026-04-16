@@ -204,7 +204,7 @@ function buildTabDOM(doc: Document, contentEl: HTMLElement): TabDOMElements {
 
   // Rich input (contentEditable div)
   const richInput = new RichInput(doc, inputWrapper, {
-    placeholder: 'Ask Claudian...',
+    placeholder: 'Ask Archivist...',
   });
   const inputEl = richInput.el;
 

@@ -28,7 +28,7 @@ A reusable `showOverlayDialog(options)` function that:
 - Creates a backdrop (`div.archivist-overlay-backdrop`) with click-outside-to-close
 - Centers a parchment-themed dialog (`div.archivist-overlay-dialog`) with title, body, and footer
 - Footer has Cancel + primary action button
-- Appends to `document.body` (or Logseq's host document)
+- Appends to Logseq's host document body (`parent.document.body`), since the plugin runs inside an iframe and the overlay must cover the full Logseq UI
 - Returns a `close()` handle for programmatic dismissal
 - Handles Escape key to close
 

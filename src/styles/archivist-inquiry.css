@@ -14,24 +14,60 @@
 
 /* ── Panel container ──────────────────────────────────── */
 
+/* Sidebar mode: panel sits beside Logseq's main content, not overlaying it */
 #archivist-inquiry-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 420px;
-  height: 100vh;
-  z-index: 999;
-  display: flex;
+  position: relative;
+  display: none;
   flex-direction: column;
+  width: var(--archivist-panel-width, 420px);
+  height: 100vh;
+  flex-shrink: 0;
   background: var(--ls-primary-background-color, #fff);
   border-left: 1px solid var(--ls-border-color, #ddd);
   box-shadow: -2px 0 12px rgba(0, 0, 0, 0.08);
-  transform: translateX(100%);
-  transition: transform 0.25s ease;
 }
 
 #archivist-inquiry-panel.archivist-panel-open {
-  transform: translateX(0);
+  display: flex;
+}
+
+/* No explicit width override on #main-container or #app-container.
+   Logseq's #app-container is already display: flex, and #left-container
+   is flex: 1 1 0%. Our panel (flex-shrink: 0; fixed width) naturally
+   takes its slot as a flex sibling, and Logseq's layout shrinks to
+   match — identical behavior to Logseq's own native right sidebar.
+   Any explicit width rule here would double-shrink #main-container
+   relative to #left-container and create an orphan horizontal gap. */
+
+/* ── Resize handle (left edge of panel) ──────────────── */
+.archivist-inquiry-resizer {
+  position: absolute;
+  width: 4px;
+  top: 0;
+  left: -2px;
+  bottom: 0;
+  cursor: col-resize;
+  z-index: 10;
+  transition: background-color 200ms;
+  transition-delay: 300ms;
+  overflow: hidden;
+}
+.archivist-inquiry-resizer:hover,
+.archivist-inquiry-resizer:active {
+  background: var(--ls-active-primary-color, #007bff);
+  opacity: 0.9;
+}
+#archivist-inquiry-panel.archivist-panel-resizing {
+  transition: none;
+  user-select: none;
+}
+#archivist-inquiry-panel.archivist-panel-resizing .archivist-inquiry-resizer {
+  background: var(--ls-active-primary-color, #007bff);
+  opacity: 0.9;
+}
+body.archivist-resizing-buf {
+  user-select: none !important;
+  cursor: col-resize !important;
 }
 
 /* ── Content area (holds ChatView) ───────────────────── */
@@ -525,12 +561,12 @@
   height: 16.8px;
 }
 
-/* Tab bar container - constrained within header, scrollable, owns the bottom border */
+/* Tab bar container - auto-sized to content height, not flex-growing */
 .claudian-tab-bar-container {
   display: flex;
   align-items: stretch;
   gap: 0;
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 0;
   overflow: hidden;
   position: relative;
@@ -644,6 +680,8 @@
 .archivist-tab-context-item { padding: 6px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; }
 .archivist-tab-context-item:hover { background: var(--ls-menu-hover-color); }
 
+/* Content area where tab contents are mounted */
+.claudian-content-area { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
 /* Tab content container */
 .claudian-tab-content-container { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
 .claudian-tab-content { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
@@ -5637,12 +5675,21 @@ code .claudian-file-link:hover {
   flex-shrink: 0 !important;
 }
 
-#archivist-inquiry-panel .claudian-tab-content-container,
+#archivist-inquiry-panel .claudian-tab-content-container {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+}
+/* Tab visibility: use class-based toggling to beat Logseq's !important display overrides */
 #archivist-inquiry-panel .claudian-tab-content {
   display: flex !important;
   flex-direction: column !important;
   flex: 1 1 0 !important;
   min-height: 0 !important;
+}
+#archivist-inquiry-panel .claudian-tab-content.claudian-tab-hidden {
+  display: none !important;
 }
 
 #archivist-inquiry-panel * {

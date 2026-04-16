@@ -11,7 +11,11 @@ import { isDndCodeFence, parseDndCodeFence, type DndCodeFenceResult } from './dn
 // Re-export pure functions and types for external consumers
 export { isDndCodeFence, parseDndCodeFence, type DndCodeFenceResult } from './dndCodeFence';
 
-export type CopyAndSaveCallback = (entityType: string, yamlSource: string, name: string) => Promise<string | undefined> | void;
+export interface CopyAndSaveResult {
+  pageName: string;
+}
+
+export type CopyAndSaveCallback = (entityType: string, yamlSource: string, name: string) => Promise<CopyAndSaveResult | undefined> | void;
 
 /**
  * Inserts trusted HTML from our own renderers into a DOM element.
@@ -124,21 +128,18 @@ function renderCopyAndSaveButton(
   btn.appendChild(labelSpan);
 
   btn.addEventListener('click', async () => {
-    const slugResult = await onCopyAndSave(result.entityType, result.yamlSource, result.name);
-    const slug = typeof slugResult === 'string' ? slugResult : undefined;
+    const saveResult = await onCopyAndSave(result.entityType, result.yamlSource, result.name);
+    const saved = saveResult && typeof saveResult === 'object' ? saveResult : undefined;
+    if (!saved) return;
 
-    // Copy widget reference or code fence fallback
-    const refText = slug
-      ? `{{${result.entityType}:${slug}}}`
-      : '```' + result.entityType + '\n' + result.yamlSource + '\n```';
+    const refText = `{{embed [[${saved.pageName}]]}}`;
     try {
+      doc.defaultView?.focus();
       await navigator.clipboard.writeText(refText);
-    } catch { /* clipboard may fail */ }
-
-    // Update button to show success
-    if (slug) {
       labelSpan.textContent = 'Saved!';
       setTimeout(() => { labelSpan.textContent = 'Copy & Save'; }, 2000);
+    } catch (e) {
+      console.warn('[archivist] Clipboard write failed:', e);
     }
   });
 }

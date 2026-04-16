@@ -2,6 +2,9 @@
 // InquiryPanel — DOM Injection Shell
 // Creates and manages the sidebar chat panel in Logseq's host document.
 // On sidecar connect, replaces placeholder content with ChatView.
+//
+// Credit: Based on the Claudian obsidian plugin by YishenTu
+// https://github.com/YishenTu/claudian
 // ──────────────────────────────────────────────────────────
 
 import { SidecarClient, ConnectionState } from './SidecarClient';
@@ -10,6 +13,7 @@ import { ToastRenderer } from './ui/ToastRenderer';
 import { setIcon, createIconEl } from './shared/icons';
 import type { EntityRegistry } from '../entities/entity-registry';
 import type { NotificationMessage } from './protocol';
+import type { CopyAndSaveCallback } from './rendering/DndEntityRenderer';
 
 // Import CSS as a raw string — Vite handles this via the ?inline suffix.
 // We inject it into the host document <head> since the panel lives outside
@@ -21,7 +25,7 @@ export class InquiryPanel {
   private panelEl: HTMLElement;
   private client: SidecarClient;
   private entityRegistry: EntityRegistry | null;
-  private onCopyAndSave?: (entityType: string, yamlSource: string, name: string) => Promise<string | undefined> | void;
+  private onCopyAndSave?: CopyAndSaveCallback;
   private isOpen = false;
   private styleEl: HTMLStyleElement | null = null;
   private connectionIndicator: HTMLElement | null = null;
@@ -42,7 +46,7 @@ export class InquiryPanel {
     hostDoc: Document,
     client: SidecarClient,
     entityRegistry?: EntityRegistry,
-    onCopyAndSave?: (entityType: string, yamlSource: string, name: string) => Promise<string | undefined> | void,
+    onCopyAndSave?: CopyAndSaveCallback,
   ) {
     this.hostDoc = hostDoc;
     this.client = client;
@@ -52,8 +56,14 @@ export class InquiryPanel {
   }
 
   init(): void {
+    // 0. Clean up any stale panels/styles from a previous plugin load
+    //    (Logseq doesn't unmount plugin DOM on reload, leaving ghost panels.)
+    this.hostDoc.querySelectorAll('#archivist-inquiry-panel').forEach((el) => el.remove());
+    this.hostDoc.querySelectorAll('style[data-archivist-inquiry]').forEach((el) => el.remove());
+
     // 1. Inject CSS into host document head
     this.styleEl = this.hostDoc.createElement('style');
+    this.styleEl.setAttribute('data-archivist-inquiry', '');
     this.styleEl.textContent = inquiryCss;
     this.hostDoc.head.appendChild(this.styleEl);
 
@@ -61,7 +71,7 @@ export class InquiryPanel {
     this.panelEl.id = 'archivist-inquiry-panel';
 
     // 3. Build panel structure:
-    //    - Header (bot icon + "Claudian" title + action buttons)
+    //    - Header (bot icon + "Archivist Inquiry" title + action buttons)
     //    - Connection indicator
     //    - Content area (placeholder initially, ChatView when connected)
 
@@ -72,7 +82,7 @@ export class InquiryPanel {
     titleArea.className = 'archivist-inquiry-header-title';
     const botIcon = createIconEl(this.hostDoc, 'bot', 'archivist-inquiry-title-icon');
     const titleText = this.hostDoc.createElement('span');
-    titleText.textContent = 'Claudian';
+    titleText.textContent = 'Archivist Inquiry';
     titleArea.appendChild(botIcon);
     titleArea.appendChild(titleText);
 
@@ -313,8 +323,8 @@ export class InquiryPanel {
       toolbar.querySelector('.archivist-inquiry-toolbar-btn')?.remove();
       const btn = this.hostDoc.createElement('button');
       btn.className = 'archivist-inquiry-toolbar-btn';
-      btn.title = 'Toggle Claudian';
-      btn.setAttribute('aria-label', 'Toggle Claudian');
+      btn.title = 'Toggle Archivist Inquiry';
+      btn.setAttribute('aria-label', 'Toggle Archivist Inquiry');
       setIcon(btn, 'bot');
       btn.addEventListener('click', () => this.toggle());
       toolbar.prepend(btn);
