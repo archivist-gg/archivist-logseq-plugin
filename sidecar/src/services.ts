@@ -19,6 +19,8 @@ import type { ClaudianSettings } from './core/types/settings.js';
 import type { SidecarContext } from './core/agent/ClaudianService.js';
 import type { ExitPlanModeDecision } from './core/types/index.js';
 import { SessionRouter } from './SessionRouter.js';
+import { SrdStore } from './ai/srd/srd-store.js';
+import { createArchivistMcpServer } from './ai/mcp-server.js';
 
 // ── Pending callback registry ─────────────────────────────
 
@@ -89,6 +91,8 @@ export interface SidecarServices {
   graphRoot: string;
   /** Current settings accessor. */
   getSettings(): ClaudianSettings;
+  /** Update archivist D&D settings (from plugin). */
+  setArchivistSettings(settings: { ttrpgRootDir?: string }): void;
 }
 
 // ── Initialization ────────────────────────────────────────
@@ -138,6 +142,9 @@ export async function initializeServices(
   const commands = await storage.commands.loadAll();
   currentSettings = { ...currentSettings, slashCommands: commands };
 
+  // Archivist D&D settings — updated via archivist.settings WS message
+  let currentArchivistSettings: { ttrpgRootDir?: string } = { ttrpgRootDir: '/' };
+
   // 2. MCP server manager
   const mcp = new McpServerManager(storage.mcp);
   await mcp.loadServers();
@@ -149,6 +156,11 @@ export async function initializeServices(
   // 4. Agent manager
   const agentManager = new AgentManager(graphRoot, pluginManager);
   await agentManager.loadAgents();
+
+  // 4b. SRD store + Archivist MCP server
+  const srdStore = new SrdStore();
+  srdStore.loadFromBundledJson();
+  const archivistMcpServer = createArchivistMcpServer(srdStore);
 
   // 5. Pending callback registries
   const pendingApprovals = new PendingCallbackRegistry<ApprovalDecision>();
@@ -165,8 +177,8 @@ export async function initializeServices(
     getStorageService: () => storage,
     pluginManager,
     agentManager,
-    archivistMcpServer: null,
-    getArchivistSettings: () => ({}),
+    archivistMcpServer,
+    getArchivistSettings: () => currentArchivistSettings,
   };
 
   // 7. SessionRouter (manages per-tab ClaudianService instances)
@@ -182,5 +194,8 @@ export async function initializeServices(
     pendingAskUser,
     graphRoot,
     getSettings: () => currentSettings,
+    setArchivistSettings: (settings: { ttrpgRootDir?: string }) => {
+      currentArchivistSettings = settings;
+    },
   };
 }
