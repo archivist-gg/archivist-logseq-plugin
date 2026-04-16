@@ -25,6 +25,10 @@
     "moo": "^0.5.3",
     "three": "^0.183.2"
   },
+  "overrides": {
+    "dompurify": "^3.4.0",
+    "lodash-es": "^4.17.24"
+  },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/markdown-it": "^14.1.2",
