@@ -1535,3 +1535,111 @@
   width: 56px;
   padding: 4px 16px !important;
 }
+
+/* ==========================================================================
+   Overlay Dialog
+   Parchment-themed modal for compendium operations.
+   ========================================================================== */
+
+.archivist-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.archivist-overlay-dialog {
+  width: 100%;
+  max-width: 400px;
+  background: #fdf1dc;
+  border: 1px dashed #d9c484;
+  border-radius: 6px;
+  padding: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  font-family: "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #191813;
+}
+
+.archivist-overlay-title {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #7a200d;
+}
+
+.archivist-overlay-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.archivist-overlay-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.archivist-overlay-label {
+  font-size: 13px;
+  font-weight: normal;
+  color: #191813;
+}
+
+.archivist-overlay-input,
+.archivist-overlay-select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #191813;
+  background: #fdf1dc;
+  border: 1px dashed #d9c484;
+  border-radius: 4px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.archivist-overlay-input:focus,
+.archivist-overlay-select:focus {
+  border-style: solid;
+  border-color: #922610;
+}
+
+.archivist-overlay-input::placeholder {
+  color: #b5a67a;
+}
+
+.archivist-overlay-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.archivist-overlay-btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-family: "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  border: 1px solid #d9c484;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #fdf1dc;
+  color: #191813;
+}
+
+.archivist-overlay-btn:hover {
+  background: #f0e3c0;
+}
+
+.archivist-overlay-btn-primary {
+  background: #922610;
+  color: #fdf1dc;
+  border-color: #922610;
+}
+
+.archivist-overlay-btn-primary:hover {
+  background: #7a200d;
+}
