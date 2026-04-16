@@ -352,6 +352,10 @@ async function routeMessage(
         });
         break;
 
+      case 'archivist.settings':
+        services.setArchivistSettings({ ttrpgRootDir: message.ttrpgRootDir });
+        break;
+
       default:
         console.log(`[ws] unhandled message type: ${(message as { type: string }).type}`);
     }
