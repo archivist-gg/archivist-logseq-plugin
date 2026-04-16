@@ -20,7 +20,11 @@ import { findBlockUuid, getCompendiumContext } from "./edit/block-utils";
 import type { CompendiumContext } from "./edit/block-utils";
 import { renderSideButtons, wireSideButtonEvents } from "./edit/side-buttons";
 import type { SideButtonCallbacks } from "./edit/side-buttons";
-import { showCompendiumPicker } from "./edit/compendium-picker";
+import {
+  showCreateCompendiumModal,
+  showCompendiumSelectModal,
+  showSaveAsNewModal,
+} from "./edit/compendium-modals";
 import { renderMonsterEditMode, wireMonsterEditEvents } from "./edit/monster-edit-render";
 import { renderSpellEditMode, wireSpellEditEvents } from "./edit/spell-edit-render";
 import { renderItemEditMode, wireItemEditEvents } from "./edit/item-edit-render";
@@ -35,11 +39,16 @@ type ParseResult<T> =
 export interface EditCallbacks {
   onSave: (yaml: string) => Promise<void>;
   onSaveAsNew: (yaml: string, entityName: string) => Promise<void>;
+  onSaveToCompendium: (yaml: string, entityName: string) => Promise<void>;
   onCancel: () => void;
 }
 
 let managerRef: CompendiumManager | null = null;
 let registryRef: EntityRegistry | null = null;
+
+function getHostDoc(): Document {
+  return parent?.document ?? top?.document ?? document;
+}
 
 /**
  * Creates a stateful fenced code renderer for Logseq's Experiments API.
@@ -213,19 +222,76 @@ function createStatefulBlockRenderer(
         },
         onSaveAsNew: async (yaml: string, entityName: string) => {
           if (!managerRef) return;
-          const el = containerRef.current;
-          if (!el) return;
-          // Show compendium picker
+          const hostDoc = getHostDoc();
           const compendiums = managerRef.getWritable();
+
           if (compendiums.length === 0) {
-            await logseq.UI.showMsg("No writable compendiums available", "warning");
-            return;
-          }
-          if (compendiums.length === 1) {
+            showCreateCompendiumModal({
+              hostDoc,
+              onCreate: async (name, description) => {
+                const comp = await managerRef!.create(name, description || `${name} compendium`, true, false);
+                await logseq.UI.showMsg(`Created compendium: ${name}`, "success");
+                await saveToCompendium(comp, yaml, entityName);
+              },
+            });
+          } else if (compendiums.length === 1) {
             await saveToCompendium(compendiums[0], yaml, entityName);
           } else {
-            showCompendiumPicker(el, compendiums, async (comp) => {
-              await saveToCompendium(comp, yaml, entityName);
+            showCompendiumSelectModal({
+              hostDoc,
+              compendiums,
+              onSelect: async (comp) => {
+                await saveToCompendium(comp, yaml, entityName);
+              },
+              onCreateNew: () => {
+                showCreateCompendiumModal({
+                  hostDoc,
+                  onCreate: async (name, description) => {
+                    const comp = await managerRef!.create(name, description || `${name} compendium`, true, false);
+                    await logseq.UI.showMsg(`Created compendium: ${name}`, "success");
+                    await saveToCompendium(comp, yaml, entityName);
+                  },
+                });
+              },
+            });
+          }
+        },
+        onSaveToCompendium: async (yaml: string, entityName: string) => {
+          if (!managerRef) return;
+          const hostDoc = getHostDoc();
+          const compendiums = managerRef.getWritable();
+
+          const doSave = async (comp: { name: string }, finalName: string) => {
+            await saveToCompendium(comp, yaml, finalName);
+          };
+
+          if (compendiums.length === 0) {
+            showCreateCompendiumModal({
+              hostDoc,
+              onCreate: async (name, description) => {
+                const comp = await managerRef!.create(name, description || `${name} compendium`, true, false);
+                await logseq.UI.showMsg(`Created compendium: ${name}`, "success");
+                await doSave(comp, entityName);
+              },
+            });
+          } else {
+            showSaveAsNewModal({
+              hostDoc,
+              compendiums,
+              defaultName: entityName,
+              onSave: async (comp, finalName) => {
+                await doSave(comp, finalName);
+              },
+              onCreateNew: () => {
+                showCreateCompendiumModal({
+                  hostDoc,
+                  onCreate: async (name, description) => {
+                    const comp = await managerRef!.create(name, description || `${name} compendium`, true, false);
+                    await logseq.UI.showMsg(`Created compendium: ${name}`, "success");
+                    await doSave(comp, entityName);
+                  },
+                });
+              },
             });
           }
         },
@@ -450,8 +516,18 @@ entries:
 
       const writable = managerRef.getWritable();
       if (writable.length === 0) {
-        await logseq.UI.showMsg("No writable compendiums. Create one first.", "warning");
-        return undefined;
+        return new Promise<string | undefined>((resolve) => {
+          showCreateCompendiumModal({
+            hostDoc: getHostDoc(),
+            onCreate: async (compName, description) => {
+              const comp = await managerRef!.create(compName, description || `${compName} compendium`, true, false);
+              await logseq.UI.showMsg(`Created compendium: ${compName}`, "success");
+              const entity = await managerRef!.saveEntity(comp.name, entityType, { ...data, name });
+              await logseq.UI.showMsg(`Saved "${name}" to ${comp.name}`, "success");
+              resolve(entity.slug);
+            },
+          });
+        });
       }
       const comp = writable[0];
       const entity = await managerRef.saveEntity(comp.name, entityType, { ...data, name });

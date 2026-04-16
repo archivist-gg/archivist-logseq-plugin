@@ -322,6 +322,22 @@ export function wireItemEditEvents(
     });
   }
 
+  // -- Wire save-to-compendium button --
+  const saveToCompBtn = container.querySelector<HTMLElement>('[data-action="save-to-compendium"]');
+  if (saveToCompBtn) {
+    saveToCompBtn.addEventListener("click", () => {
+      const clean = buildCleanItem(draft);
+      const yamlStr = yaml.dump(clean, {
+        lineWidth: -1,
+        quotingType: "\"",
+        forceQuotes: false,
+        sortKeys: false,
+        noRefs: true,
+      });
+      callbacks.onSaveToCompendium(yamlStr, draft.name);
+    });
+  }
+
   // -- Wire cancel button --
   const cancelBtn = container.querySelector<HTMLElement>('[data-action="cancel"]');
   if (cancelBtn) {

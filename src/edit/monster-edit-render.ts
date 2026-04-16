@@ -714,6 +714,14 @@ export function wireMonsterEditEvents(
     });
   }
 
+  // -- Wire save-to-compendium button --
+  const saveToCompBtn = container.querySelector<HTMLElement>('[data-action="save-to-compendium"]');
+  if (saveToCompBtn) {
+    saveToCompBtn.addEventListener("click", () => {
+      callbacks.onSaveToCompendium(state.toYaml(), state.current.name);
+    });
+  }
+
   // -- Wire cancel button --
   const cancelBtn = container.querySelector<HTMLElement>('[data-action="cancel"]');
   if (cancelBtn) {
