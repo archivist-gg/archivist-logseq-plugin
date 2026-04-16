@@ -20,13 +20,28 @@ Create a fenced code block with the appropriate language tag:
 ````markdown
 ```monster
 name: Young Red Dragon
-size: large
+size: Large
 type: dragon
 alignment: chaotic evil
-ac: 18 (natural armor)
-hp: 178 (17d10+85)
-speed: 40 ft., climb 40 ft., fly 80 ft.
-abilities: [23, 10, 21, 14, 11, 19]
+cr: "10"
+ac:
+  - ac: 18
+    from:
+      - natural armor
+hp:
+  average: 178
+  formula: 17d10+85
+speed:
+  walk: 40
+  climb: 40
+  fly: 80
+abilities:
+  str: 23
+  dex: 10
+  con: 21
+  int: 14
+  wis: 11
+  cha: 19
 ```
 ````
 
@@ -73,6 +88,14 @@ Search "Archivist" in the Logseq plugin marketplace.
 4. In Logseq, go to Plugins (three dots menu) and click **"Load unpacked plugin"**
 5. Select the extracted folder
 
+> ⚠️ **Windows users — unblock the ZIP before extracting.** Windows tags files downloaded from the internet (Mark of the Web), and Logseq's Electron runtime refuses to load plugins with that mark — you'll see `Not allowed to load local resource` and a `loadhandshake Timeout` in the console. Right-click the downloaded `.zip` → **Properties** → check **Unblock** → **OK**, *then* extract. If you already extracted, run this in PowerShell on the plugin folder:
+>
+> ```powershell
+> Get-ChildItem -Path "C:\path\to\archivist-logseq-plugin" -Recurse | Unblock-File
+> ```
+>
+> Then restart Logseq and reload the unpacked plugin. Installing from a path outside `Downloads` (e.g. `C:\logseq-plugins\archivist`) avoids related edge cases.
+
 **From Source:**
 ```bash
 git clone https://github.com/archivist-gg/archivist-logseq-plugin.git
@@ -92,6 +115,35 @@ After installing, import the bundled SRD compendium:
 4. Once complete, you'll see a confirmation with the total entity count
 
 The SRD data is loaded on demand when you run the import command, so it does not affect plugin startup time.
+
+## Archivist Inquiry (AI Chat)
+
+Archivist Inquiry is a local D&D 5e chat assistant that runs entirely on your machine. A small sidecar server (`archivist-bridge`) spawns Claude Code as the AI engine and the plugin talks to it over a localhost WebSocket.
+
+**Prerequisites:**
+- [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) installed and **already logged in** on your machine. The sidecar shells out to the `claude` CLI, so no `ANTHROPIC_API_KEY` is needed — your Claude Code session handles auth.
+- Node.js 18 or newer.
+
+**Start the sidecar (once per Logseq session):**
+
+```bash
+npx archivist-bridge --graph /path/to/your/logseq-graph
+```
+
+Point `--graph` at the folder Logseq has open (the one containing your `pages/` and `journals/` directories). The sidecar auto-picks a port in `52340–52360`, writes a discovery file at `<graph>/.archivist/server.json`, and prints the URL it's listening on. Leave this terminal window running.
+
+Useful flags:
+- `--port <n>` — pin a specific port instead of auto-selecting
+- `--help` — show all options
+
+**Open the Inquiry panel in Logseq:**
+
+1. Press `Cmd/Ctrl+Shift+I`, or run **"Toggle Archivist Inquiry"** from the command palette
+2. The panel slides in and auto-discovers the running sidecar
+3. Ask a question — e.g. "stat block for a level 5 goblin druid", "what does Counterspell do at higher levels?", "roll initiative for this encounter"
+4. Use **"Archivist Inquiry: New Session"** from the command palette to start a fresh conversation
+
+If the panel shows "disconnected", confirm the sidecar terminal is still running and that `--graph` points at the same vault Logseq has open.
 
 ## Testing the Plugin
 
@@ -121,12 +173,6 @@ In any Logseq block, use inline code with dice notation:
 - `` `damage:1d8+DEX` `` — shows damage dice
 
 These render as styled pills that are clickable when dice rolling is enabled.
-
-### Entity Search
-
-1. Open the command palette (`Cmd/Ctrl+Shift+P`)
-2. Run **"Archivist: Search Entity"**
-3. Type a name to search across all compendiums (SRD must be imported first)
 
 ### Compendium Browsing
 
