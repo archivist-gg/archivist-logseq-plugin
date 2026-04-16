@@ -27,6 +27,8 @@ export interface ChatViewOptions {
   client: SidecarClient;
   /** The container element to mount into. */
   containerEl: HTMLElement;
+  /** Callback for D&D entity Copy & Save buttons. */
+  onCopyAndSave?: (entityType: string, yamlSource: string, name: string) => Promise<string | undefined> | void;
 }
 
 // ── ChatView ──
@@ -35,6 +37,7 @@ export class ChatView {
   private doc: Document;
   private client: SidecarClient;
   private containerEl: HTMLElement;
+  private onCopyAndSave?: (entityType: string, yamlSource: string, name: string) => Promise<string | undefined> | void;
 
   // DOM elements
   private tabBarEl: HTMLElement | null = null;
@@ -57,6 +60,7 @@ export class ChatView {
     this.doc = options.doc;
     this.client = options.client;
     this.containerEl = options.containerEl;
+    this.onCopyAndSave = options.onCopyAndSave;
   }
 
   // ============================================
@@ -167,6 +171,7 @@ export class ChatView {
         onTabTitleChanged: () => this.updateTabBar(),
         onTabAttentionChanged: () => this.updateTabBar(),
       },
+      onCopyAndSave: this.onCopyAndSave,
     });
 
     // Create TabBar

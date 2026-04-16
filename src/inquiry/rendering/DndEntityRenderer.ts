@@ -2,7 +2,7 @@ import { setIcon } from '../shared/icons';
 import { parseMonster } from '../../parsers/monster-parser';
 import { parseSpell } from '../../parsers/spell-parser';
 import { parseItem } from '../../parsers/item-parser';
-import { renderMonsterBlock } from '../../renderers/monster-renderer';
+import { renderMonsterBlock, initMonsterTabs } from '../../renderers/monster-renderer';
 import { renderSpellBlock } from '../../renderers/spell-renderer';
 import { renderItemBlock } from '../../renderers/item-renderer';
 
@@ -78,6 +78,11 @@ export function renderDndEntityBlock(
     temp.className = 'archivist-stat-block-wrapper';
     setTrustedRendererHtml(temp, statBlockHtml);
     wrapper.appendChild(temp);
+
+    // Wire tab click handlers (monster blocks have TRAITS/ACTIONS/REACTIONS tabs)
+    if (result.entityType === 'monster') {
+      initMonsterTabs(temp);
+    }
   } else {
     // Fallback: show raw YAML in a pre block
     const fallback = doc.createElement('pre');

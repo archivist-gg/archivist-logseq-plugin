@@ -21,6 +21,7 @@ export class InquiryPanel {
   private panelEl: HTMLElement;
   private client: SidecarClient;
   private entityRegistry: EntityRegistry | null;
+  private onCopyAndSave?: (entityType: string, yamlSource: string, name: string) => Promise<string | undefined> | void;
   private isOpen = false;
   private styleEl: HTMLStyleElement | null = null;
   private connectionIndicator: HTMLElement | null = null;
@@ -37,10 +38,16 @@ export class InquiryPanel {
   private historyBtn: HTMLElement | null = null;
   private newSessionBtn: HTMLElement | null = null;
 
-  constructor(hostDoc: Document, client: SidecarClient, entityRegistry?: EntityRegistry) {
+  constructor(
+    hostDoc: Document,
+    client: SidecarClient,
+    entityRegistry?: EntityRegistry,
+    onCopyAndSave?: (entityType: string, yamlSource: string, name: string) => Promise<string | undefined> | void,
+  ) {
     this.hostDoc = hostDoc;
     this.client = client;
     this.entityRegistry = entityRegistry ?? null;
+    this.onCopyAndSave = onCopyAndSave;
     this.panelEl = hostDoc.createElement('div');
   }
 
@@ -181,6 +188,7 @@ export class InquiryPanel {
       doc: this.hostDoc,
       client: this.client,
       containerEl: this.contentEl,
+      onCopyAndSave: this.onCopyAndSave,
     });
     this.chatView.init();
     this.chatViewReady = true;

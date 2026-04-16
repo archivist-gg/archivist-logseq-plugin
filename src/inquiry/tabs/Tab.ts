@@ -34,6 +34,7 @@ import {
   StreamController,
 } from '../controllers';
 import { MessageRenderer } from '../rendering/MessageRenderer';
+import type { CopyAndSaveCallback } from '../rendering/DndEntityRenderer';
 import { renderMarkdownToEl } from '../rendering/markdown';
 import { ChatState } from '../state/ChatState';
 import {
@@ -98,10 +99,9 @@ export function createTab(options: TabCreateOptions): TabData {
 
   const id = tabId ?? generateTabId();
 
-  // Create per-tab content container (hidden by default)
+  // Create per-tab content container (hidden by default via class)
   const contentEl = doc.createElement('div');
-  contentEl.className = 'claudian-tab-content';
-  contentEl.style.display = 'none';
+  contentEl.className = 'claudian-tab-content claudian-tab-hidden';
   containerEl.appendChild(contentEl);
 
   // Create ChatState with callbacks
@@ -382,6 +382,7 @@ export function initializeTabControllers(
   tab: TabData,
   doc: Document,
   client: SidecarClient,
+  onCopyAndSave?: CopyAndSaveCallback,
 ): void {
   const { dom, state, ui } = tab;
 
@@ -395,6 +396,11 @@ export function initializeTabControllers(
       logseq.App.pushState('page', { name: pageName });
     },
   );
+
+  // Wire D&D entity Copy & Save callback
+  if (onCopyAndSave) {
+    tab.renderer.setDndCopyAndSaveCallback(onCopyAndSave);
+  }
 
   // Create stream controller
   tab.controllers.streamController = new StreamController({
@@ -659,7 +665,7 @@ export function wireTabInputEvents(tab: TabData): void {
  * Activates a tab (shows it and starts services).
  */
 export function activateTab(tab: TabData): void {
-  tab.dom.contentEl.style.display = 'flex';
+  tab.dom.contentEl.classList.remove('claudian-tab-hidden');
   tab.controllers.selectionController?.start();
 }
 
@@ -667,7 +673,7 @@ export function activateTab(tab: TabData): void {
  * Deactivates a tab (hides it and stops services).
  */
 export function deactivateTab(tab: TabData): void {
-  tab.dom.contentEl.style.display = 'none';
+  tab.dom.contentEl.classList.add('claudian-tab-hidden');
   tab.controllers.selectionController?.stop();
 }
 

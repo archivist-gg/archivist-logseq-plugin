@@ -48,6 +48,8 @@ export interface TabManagerOptions {
   onModelChange: (model: string) => void;
   /** Called when effort level changes in any tab's toolbar. */
   onEffortLevelChange: (effort: string) => void;
+  /** Callback for D&D entity Copy & Save buttons in chat. */
+  onCopyAndSave?: (entityType: string, yamlSource: string, name: string) => Promise<string | undefined> | void;
 }
 
 /**
@@ -61,6 +63,7 @@ export class TabManager implements TabManagerInterface {
   private getSettings: () => ToolbarSettings;
   private onModelChange: (model: string) => void;
   private onEffortLevelChange: (effort: string) => void;
+  private onCopyAndSave?: (entityType: string, yamlSource: string, name: string) => Promise<string | undefined> | void;
 
   private tabs: Map<TabId, TabData> = new Map();
   private activeTabId: TabId | null = null;
@@ -84,6 +87,7 @@ export class TabManager implements TabManagerInterface {
     this.getSettings = options.getSettings;
     this.onModelChange = options.onModelChange;
     this.onEffortLevelChange = options.onEffortLevelChange;
+    this.onCopyAndSave = options.onCopyAndSave;
   }
 
   // ============================================
@@ -129,7 +133,7 @@ export class TabManager implements TabManagerInterface {
     });
 
     // Initialize controllers
-    initializeTabControllers(tab, this.doc, this.client);
+    initializeTabControllers(tab, this.doc, this.client, this.onCopyAndSave);
 
     // Wire input event handlers
     wireTabInputEvents(tab);

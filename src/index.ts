@@ -1,4 +1,5 @@
 import "@logseq/libs";
+import yaml from "js-yaml";
 import { parseMonster } from "./parsers/monster-parser";
 import { parseSpell } from "./parsers/spell-parser";
 import { parseItem } from "./parsers/item-parser";
@@ -441,7 +442,21 @@ entries:
   try {
     const hostDoc = parent?.document ?? top?.document ?? document;
     const sidecarClient = new SidecarClient();
-    inquiryPanel = new InquiryPanel(hostDoc, sidecarClient, registry);
+    inquiryPanel = new InquiryPanel(hostDoc, sidecarClient, registry, async (entityType, yamlSource, name) => {
+      if (!managerRef) return undefined;
+      const data = yaml.load(yamlSource) as Record<string, unknown>;
+      if (!data || typeof data !== 'object') return undefined;
+
+      const writable = managerRef.getWritable();
+      if (writable.length === 0) {
+        await logseq.UI.showMsg("No writable compendiums. Create one first.", "warning");
+        return undefined;
+      }
+      const comp = writable[0];
+      const entity = await managerRef.saveEntity(comp.name, entityType, { ...data, name });
+      await logseq.UI.showMsg(`Saved "${name}" to ${comp.name}`, "success");
+      return entity.slug;
+    });
     inquiryPanel.init();
     console.log("[archivist] Inquiry panel initialized");
   } catch (e) {
