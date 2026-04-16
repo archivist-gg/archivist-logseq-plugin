@@ -168,6 +168,7 @@ function createStatefulBlockRenderer(
         },
         onSave: () => {}, // handled by edit callbacks
         onSaveAsNew: () => {}, // handled by edit callbacks
+        onSaveToCompendium: () => {}, // handled by edit callbacks
         onCancel: () => setMode("view"),
         onDeleteBlock: async () => {
           const uuid = blockUuid || (containerRef.current ? findBlockUuid(containerRef.current) : null);

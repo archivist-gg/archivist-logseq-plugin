@@ -29,19 +29,20 @@ describe("renderSideButtons", () => {
     expect(html).toContain('data-action="trash"');
   });
 
-  it("renders save + save-as-new + cancel in editing state with compendium", () => {
+  it("renders save + save-as-new + cancel for writable compendium", () => {
     const html = renderSideButtons({
       state: "editing",
       showColumnToggle: false,
       isColumnActive: false,
-      compendiumContext: { slug: "goblin", compendium: "SRD", entityType: "monster", readonly: false },
+      compendiumContext: { slug: "goblin", compendium: "Homebrew", entityType: "monster", readonly: false },
     });
     expect(html).toContain('data-action="save"');
     expect(html).toContain('data-action="save-as-new"');
     expect(html).toContain('data-action="cancel"');
+    expect(html).not.toContain('data-action="save-to-compendium"');
   });
 
-  it("hides save button for readonly compendium", () => {
+  it("renders only save-as-new + cancel for readonly compendium", () => {
     const html = renderSideButtons({
       state: "editing",
       showColumnToggle: false,
@@ -53,7 +54,7 @@ describe("renderSideButtons", () => {
     expect(html).toContain('data-action="cancel"');
   });
 
-  it("renders save + cancel without compendium context", () => {
+  it("renders save + save-to-compendium + cancel without compendium context", () => {
     const html = renderSideButtons({
       state: "editing",
       showColumnToggle: false,
@@ -61,7 +62,8 @@ describe("renderSideButtons", () => {
       compendiumContext: null,
     });
     expect(html).toContain('data-action="save"');
-    expect(html).not.toContain('data-action="save-as-new"');
+    expect(html).toContain('data-action="save-to-compendium"');
     expect(html).toContain('data-action="cancel"');
+    expect(html).not.toContain('data-action="save-as-new"');
   });
 });
