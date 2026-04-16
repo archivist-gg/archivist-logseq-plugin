@@ -411,6 +411,11 @@ export function initializeTabControllers(
     updateQueueIndicator: () => tab.controllers.inputController?.updateQueueIndicator(),
   });
 
+  // Wire Copy & Save callback on stream controller too (for live-streamed tool results)
+  if (onCopyAndSave) {
+    tab.controllers.streamController.setDndCopyAndSaveCallback(onCopyAndSave);
+  }
+
   // Wire the renderer bridge so markdown renders properly (not plain text fallback)
   const pageClickHandler = (pageName: string) => {
     logseq.App.pushState('page', { name: pageName });

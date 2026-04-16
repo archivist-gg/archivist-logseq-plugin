@@ -39,6 +39,7 @@ import type {
   ToolCallInfo,
 } from '../state/types';
 import { setIcon } from '../shared/icons';
+import type { CopyAndSaveCallback } from '../rendering/DndEntityRenderer';
 import { FLAVOR_TEXTS } from '../constants';
 
 const TOOL_ENTER_PLAN_MODE = 'EnterPlanMode';
@@ -74,6 +75,7 @@ export interface StreamRendererBridge {
 export class StreamController {
   private deps: StreamControllerDeps;
   private rendererBridge: StreamRendererBridge | null = null;
+  private dndCopyAndSaveCallback?: CopyAndSaveCallback;
 
   /** Active skeleton placeholders for D&D entity generation tools, keyed by tool ID. */
   private activeSkeletons = new Map<string, {
@@ -91,6 +93,10 @@ export class StreamController {
 
   setRendererBridge(bridge: StreamRendererBridge): void {
     this.rendererBridge = bridge;
+  }
+
+  setDndCopyAndSaveCallback(cb: CopyAndSaveCallback): void {
+    this.dndCopyAndSaveCallback = cb;
   }
 
   // ============================================
@@ -377,7 +383,7 @@ export class StreamController {
 
       // Render D&D entity block as a sibling after the tool call element
       if (state.currentContentEl) {
-        renderDndEntityAfterToolCall(doc, state.currentContentEl, existingToolCall);
+        renderDndEntityAfterToolCall(doc, state.currentContentEl, existingToolCall, this.dndCopyAndSaveCallback);
       }
     }
 
