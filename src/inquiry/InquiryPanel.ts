@@ -164,8 +164,37 @@ export class InquiryPanel {
             '[archivist] Sidecar discovery failed (will retry on toggle):',
             err?.message,
           );
+          const banner = InquiryPanel.bannerForDiscoverError(err);
+          // logseq.UI.showMsg is the established user-visible error pattern
+          // throughout this plugin (see src/index.ts). Optional-chained so
+          // headless tests without a logseq global don't blow up.
+          (globalThis as any).logseq?.UI?.showMsg?.(banner, 'error');
         });
     }
+  }
+
+  /**
+   * Map a `SidecarClient.discover()` rejection to a user-facing banner string.
+   * Exposed as a static so unit tests can verify the mapping without a DOM.
+   *
+   * Three known shapes (Task 14 in security-hardening plan):
+   *   - "not running"          → bridge not started
+   *   - "out of date"          → server.json missing token (pre-0.7.0)
+   *   - "corrupted"/"malformed"→ server.json unparseable / missing port
+   * Anything else is surfaced verbatim under a generic prefix.
+   */
+  static bannerForDiscoverError(err: unknown): string {
+    const msg = String((err as { message?: unknown } | null)?.message ?? err);
+    if (msg.includes('not running')) {
+      return 'The archivist-bridge is not running. Start it from the plugin settings.';
+    }
+    if (msg.includes('out of date')) {
+      return 'The archivist-bridge is out of date. Please update.';
+    }
+    if (msg.includes('corrupted') || msg.includes('malformed')) {
+      return "The archivist-bridge isn't responding. Restart it from the plugin settings.";
+    }
+    return `Archivist connection error: ${msg}`;
   }
 
   toggle(): void {
