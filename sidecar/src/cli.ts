@@ -129,6 +129,15 @@ function writeDiscoveryFile(graphRoot: string, port: number, token: string): str
     JSON.stringify(discovery, null, 2),
     { mode: 0o600 },
   );
+  // writeFileSync's `mode` option is only applied when the file is created;
+  // if it already exists from a previous run, the old mode is preserved.
+  // chmodSync forces 0o600 unconditionally so the token file is owner-only
+  // on every run. No-op on Windows.
+  try {
+    fs.chmodSync(discoveryPath, 0o600);
+  } catch {
+    // Best-effort — don't fail startup over a chmod failure.
+  }
   return discoveryPath;
 }
 

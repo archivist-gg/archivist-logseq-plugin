@@ -3,14 +3,20 @@ import * as crypto from 'node:crypto';
 /**
  * The set of Origin header values accepted by the bridge's WebSocket handshake.
  *
- * The Logseq Electron webview's real Origin header value is discovered
- * empirically in Task 10 of the hardening plan. Until then, this contains a
- * placeholder value that must be replaced with the observed string before
- * the bridge can be released.
+ * Empirically observed: the Logseq Electron plugin iframe sends Origin: file://
+ * (a bare scheme, no host). This is Logseq's plugin-host convention. Obsidian
+ * is deliberately excluded — it doesn't consume the bridge.
+ *
+ * Note on breadth: `file://` is a coarse allowlist — any local HTML file loaded
+ * in an Electron context with the same scheme would match. This is acceptable
+ * for the audit's threat model (drive-by remote pages), since the bridge only
+ * listens on 127.0.0.1 and a local attacker with filesystem write already has
+ * the user's keys. If Logseq ever migrates to a more specific scheme (e.g.
+ * `app://logseq` or `lsp://plugin`), update this list and the WS URL the
+ * plugin sends.
  */
 export const ALLOWED_ORIGINS: Set<string> = new Set([
-  // Placeholder — replaced in Task 10 with the empirically-observed value.
-  'app://logseq.io',
+  'file://',
 ]);
 
 /**
