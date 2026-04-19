@@ -145,12 +145,6 @@ export function createServer(
   //      (timing-safe comparison via `timingSafeEqualStr`).
   // Failures are rejected at the handshake with HTTP 401, so the
   // `connection` event never fires for unauthorised clients.
-  //
-  // TODO(T10): `ALLOWED_ORIGINS` currently holds the placeholder value
-  // 'app://logseq.io'. Before release, run the bridge with a diagnostic
-  // logging verifyClient, capture the real Origin string the Logseq
-  // Electron webview sends, and replace the placeholder in src/auth.ts.
-  // With the wrong origin, this check will reject legitimate connections.
   const wss = new WebSocketServer({
     server,
     verifyClient: ({ req, origin }, done) => {
