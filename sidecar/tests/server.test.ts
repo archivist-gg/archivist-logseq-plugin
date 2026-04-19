@@ -71,7 +71,7 @@ describe('Server', () => {
   it('GET /health returns service info', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'archivist-test-'));
     const services = createMockServices();
-    const instance = createServer(tmpDir, services);
+    const instance = createServer(tmpDir, services, 'test-token');
     server = instance.server;
 
     await new Promise<void>((resolve) => {
@@ -95,7 +95,7 @@ describe('Server', () => {
   it('GET /sessions returns empty list', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'archivist-test-'));
     const services = createMockServices();
-    const instance = createServer(tmpDir, services);
+    const instance = createServer(tmpDir, services, 'test-token');
     server = instance.server;
 
     await new Promise<void>((resolve) => {
@@ -115,7 +115,7 @@ describe('Server', () => {
   it('GET /commands returns empty list', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'archivist-test-'));
     const services = createMockServices();
-    const instance = createServer(tmpDir, services);
+    const instance = createServer(tmpDir, services, 'test-token');
     server = instance.server;
 
     await new Promise<void>((resolve) => {

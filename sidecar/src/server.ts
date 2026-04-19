@@ -25,6 +25,7 @@ export interface ServerInstance {
 export function createServer(
   graphRoot: string,
   services: SidecarServices,
+  token: string,
 ): ServerInstance {
   const app = express();
   app.use(express.json());
