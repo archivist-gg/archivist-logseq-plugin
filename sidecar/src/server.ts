@@ -13,6 +13,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import type { ServerMessage } from './ws/protocol.js';
 import { handleConnection } from './ws/handler.js';
 import type { SidecarServices } from './services.js';
+import { timingSafeEqualStr } from './auth.js';
 
 export interface ServerInstance {
   app: express.Application;
@@ -29,6 +30,19 @@ export function createServer(
 ): ServerInstance {
   const app = express();
   app.use(express.json());
+
+  // ── Authentication middleware ──────────────────────────
+  // Every REST route requires `Authorization: Bearer <token>`.
+  // /health is NOT exempt because its response includes graphRoot,
+  // which is itself an info-disclosure vector.
+  app.use((req, res, next) => {
+    const header = req.get('authorization') ?? '';
+    const match = header.match(/^Bearer (.+)$/);
+    if (!match || !timingSafeEqualStr(match[1], token)) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+    next();
+  });
 
   // ── REST endpoints ──────────────────────────────────────
 
