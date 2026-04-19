@@ -119,7 +119,7 @@ function writeDiscoveryFile(graphRoot: string, port: number, token: string): str
     pid: process.pid,
     port,
     graphRoot,
-    version: '0.1.0',
+    version: '0.7.0',
     startedAt: new Date().toISOString(),
     token,
   };

@@ -1,6 +1,6 @@
 {
   "name": "archivist-bridge",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "type": "module",
   "description": "Local AI server that connects Archivist TTRPG plugins to Archivist Inquiry, a D&D 5e chat assistant powered by Claude",
   "main": "dist/cli.js",
