@@ -13,6 +13,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import type { ServerMessage } from './ws/protocol.js';
 import { handleConnection } from './ws/handler.js';
 import type { SidecarServices } from './services.js';
+import { ALLOWED_ORIGINS, timingSafeEqualStr } from './auth.js';
 
 export interface ServerInstance {
   app: express.Application;
@@ -25,9 +26,23 @@ export interface ServerInstance {
 export function createServer(
   graphRoot: string,
   services: SidecarServices,
+  token: string,
 ): ServerInstance {
   const app = express();
   app.use(express.json());
+
+  // ── Authentication middleware ──────────────────────────
+  // Every REST route requires `Authorization: Bearer <token>`.
+  // /health is NOT exempt because its response includes graphRoot,
+  // which is itself an info-disclosure vector.
+  app.use((req, res, next) => {
+    const header = req.get('authorization') ?? '';
+    const match = header.match(/^Bearer (.+)$/);
+    if (!match || !timingSafeEqualStr(match[1], token)) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+    next();
+  });
 
   // ── REST endpoints ──────────────────────────────────────
 
@@ -122,7 +137,28 @@ export function createServer(
   // ── HTTP + WebSocket server ─────────────────────────────
 
   const server = createHttpServer(app);
-  const wss = new WebSocketServer({ server });
+  // ── WebSocket handshake auth ────────────────────────────
+  // Every upgrade must present BOTH:
+  //   1. An `Origin` header in `ALLOWED_ORIGINS` (defends against
+  //      drive-by browser pages reaching the loopback bridge), AND
+  //   2. A `?token=<bridge-token>` matching the configured token
+  //      (timing-safe comparison via `timingSafeEqualStr`).
+  // Failures are rejected at the handshake with HTTP 401, so the
+  // `connection` event never fires for unauthorised clients.
+  const wss = new WebSocketServer({
+    server,
+    verifyClient: ({ req, origin }, done) => {
+      if (!origin || !ALLOWED_ORIGINS.has(origin)) {
+        return done(false, 401, 'bad origin');
+      }
+      const url = new URL(req.url ?? '', 'http://x');
+      const provided = url.searchParams.get('token') ?? '';
+      if (!timingSafeEqualStr(provided, token)) {
+        return done(false, 401, 'bad token');
+      }
+      done(true);
+    },
+  });
 
   const clients = new Set<WebSocket>();
 

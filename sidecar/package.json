@@ -1,6 +1,6 @@
 {
   "name": "archivist-bridge",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "type": "module",
   "description": "Local AI server that connects Archivist TTRPG plugins to Archivist Inquiry, a D&D 5e chat assistant powered by Claude",
   "main": "dist/cli.js",
@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "express": "^4.21.0",
     "js-yaml": "^4.1.1",
     "ws": "^8.18.0",

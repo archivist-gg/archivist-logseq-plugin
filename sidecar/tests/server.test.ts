@@ -71,7 +71,7 @@ describe('Server', () => {
   it('GET /health returns service info', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'archivist-test-'));
     const services = createMockServices();
-    const instance = createServer(tmpDir, services);
+    const instance = createServer(tmpDir, services, 'test-token');
     server = instance.server;
 
     await new Promise<void>((resolve) => {
@@ -81,7 +81,9 @@ describe('Server', () => {
     const addr = server.address();
     if (!addr || typeof addr === 'string') throw new Error('unexpected address');
 
-    const res = await fetch(`http://127.0.0.1:${addr.port}/health`);
+    const res = await fetch(`http://127.0.0.1:${addr.port}/health`, {
+      headers: { Authorization: 'Bearer test-token' },
+    });
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -95,7 +97,7 @@ describe('Server', () => {
   it('GET /sessions returns empty list', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'archivist-test-'));
     const services = createMockServices();
-    const instance = createServer(tmpDir, services);
+    const instance = createServer(tmpDir, services, 'test-token');
     server = instance.server;
 
     await new Promise<void>((resolve) => {
@@ -105,7 +107,9 @@ describe('Server', () => {
     const addr = server.address();
     if (!addr || typeof addr === 'string') throw new Error('unexpected address');
 
-    const res = await fetch(`http://127.0.0.1:${addr.port}/sessions`);
+    const res = await fetch(`http://127.0.0.1:${addr.port}/sessions`, {
+      headers: { Authorization: 'Bearer test-token' },
+    });
     expect(res.status).toBe(200);
 
     const body = await res.json();
@@ -115,7 +119,7 @@ describe('Server', () => {
   it('GET /commands returns empty list', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'archivist-test-'));
     const services = createMockServices();
-    const instance = createServer(tmpDir, services);
+    const instance = createServer(tmpDir, services, 'test-token');
     server = instance.server;
 
     await new Promise<void>((resolve) => {
@@ -125,10 +129,73 @@ describe('Server', () => {
     const addr = server.address();
     if (!addr || typeof addr === 'string') throw new Error('unexpected address');
 
-    const res = await fetch(`http://127.0.0.1:${addr.port}/commands`);
+    const res = await fetch(`http://127.0.0.1:${addr.port}/commands`, {
+      headers: { Authorization: 'Bearer test-token' },
+    });
     expect(res.status).toBe(200);
 
     const body = await res.json();
     expect(body).toEqual({ commands: [] });
+  });
+
+  it('GET /health without Authorization header returns 401', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'archivist-test-'));
+    const services = createMockServices();
+    const instance = createServer(tmpDir, services, 'test-token');
+    server = instance.server;
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve());
+    });
+
+    const addr = server.address();
+    if (!addr || typeof addr === 'string') throw new Error('unexpected address');
+
+    const res = await fetch(`http://127.0.0.1:${addr.port}/health`);
+    expect(res.status).toBe(401);
+
+    const body = await res.json();
+    expect(body).toEqual({ error: 'unauthorized' });
+  });
+
+  it('GET /health with wrong Bearer token returns 401', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'archivist-test-'));
+    const services = createMockServices();
+    const instance = createServer(tmpDir, services, 'test-token');
+    server = instance.server;
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve());
+    });
+
+    const addr = server.address();
+    if (!addr || typeof addr === 'string') throw new Error('unexpected address');
+
+    const res = await fetch(`http://127.0.0.1:${addr.port}/health`, {
+      headers: { Authorization: 'Bearer wrong-token' },
+    });
+    expect(res.status).toBe(401);
+
+    const body = await res.json();
+    expect(body).toEqual({ error: 'unauthorized' });
+  });
+
+  it('GET /health with correct Bearer token returns 200', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'archivist-test-'));
+    const services = createMockServices();
+    const instance = createServer(tmpDir, services, 'test-token');
+    server = instance.server;
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve());
+    });
+
+    const addr = server.address();
+    if (!addr || typeof addr === 'string') throw new Error('unexpected address');
+
+    const res = await fetch(`http://127.0.0.1:${addr.port}/health`, {
+      headers: { Authorization: 'Bearer test-token' },
+    });
+    expect(res.status).toBe(200);
   });
 });

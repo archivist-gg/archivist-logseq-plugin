@@ -509,7 +509,12 @@ entries:
   try {
     const hostDoc = parent?.document ?? top?.document ?? document;
     const sidecarClient = new SidecarClient();
-    inquiryPanel = new InquiryPanel(hostDoc, sidecarClient, registry, async (entityType, yamlSource, name) => {
+    // T14: discovery now needs the graph root on disk so it can read
+    // <graphRoot>/.archivist/server.json (which carries the port + token
+    // the bridge requires for the WebSocket handshake and REST calls).
+    const graphInfo = await logseq.App.getCurrentGraph();
+    const graphRoot = (graphInfo?.path ?? '').replace(/^file:\/\//, '');
+    inquiryPanel = new InquiryPanel(hostDoc, sidecarClient, graphRoot, registry, async (entityType, yamlSource, name) => {
       if (!managerRef) return undefined;
       const data = yaml.load(yamlSource) as Record<string, unknown>;
       if (!data || typeof data !== 'object') return undefined;

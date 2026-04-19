@@ -1,13 +1,22 @@
 import * as fs from 'node:fs/promises';
 import * as nodePath from 'node:path';
 
+export function resolveWithinRoot(root: string, rel: string): string {
+  const resolved = nodePath.resolve(root, rel);
+  const rootResolved = nodePath.resolve(root);
+  if (resolved !== rootResolved && !resolved.startsWith(rootResolved + nodePath.sep)) {
+    throw new Error(`Path traversal rejected: ${rel}`);
+  }
+  return resolved;
+}
+
 export class NodeFileAdapter {
   private writeQueue: Promise<void> = Promise.resolve();
 
   constructor(private root: string) {}
 
   private resolve(relativePath: string): string {
-    return nodePath.join(this.root, relativePath);
+    return resolveWithinRoot(this.root, relativePath);
   }
 
   async exists(path: string): Promise<boolean> {

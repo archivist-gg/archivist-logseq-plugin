@@ -15,6 +15,7 @@
  * 6. Cleans up on SIGINT/SIGTERM
  */
 
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as path from 'node:path';
@@ -106,9 +107,10 @@ interface DiscoveryFile {
   graphRoot: string;
   version: string;
   startedAt: string;
+  token: string;
 }
 
-function writeDiscoveryFile(graphRoot: string, port: number): string {
+function writeDiscoveryFile(graphRoot: string, port: number, token: string): string {
   const discoveryDir = path.join(graphRoot, '.archivist');
   fs.mkdirSync(discoveryDir, { recursive: true });
 
@@ -117,11 +119,25 @@ function writeDiscoveryFile(graphRoot: string, port: number): string {
     pid: process.pid,
     port,
     graphRoot,
-    version: '0.1.0',
+    version: '0.7.0',
     startedAt: new Date().toISOString(),
+    token,
   };
 
-  fs.writeFileSync(discoveryPath, JSON.stringify(discovery, null, 2));
+  fs.writeFileSync(
+    discoveryPath,
+    JSON.stringify(discovery, null, 2),
+    { mode: 0o600 },
+  );
+  // writeFileSync's `mode` option is only applied when the file is created;
+  // if it already exists from a previous run, the old mode is preserved.
+  // chmodSync forces 0o600 unconditionally so the token file is owner-only
+  // on every run. No-op on Windows.
+  try {
+    fs.chmodSync(discoveryPath, 0o600);
+  } catch {
+    // Best-effort — don't fail startup over a chmod failure.
+  }
   return discoveryPath;
 }
 
@@ -154,13 +170,16 @@ async function main(): Promise<void> {
   // Initialize services
   const services = await initializeServices(args.graphRoot);
 
+  // Generate per-process auth token (256 bits of crypto randomness)
+  const token = crypto.randomBytes(32).toString('hex');
+
   // Find port and create server
   const port = await findAvailablePort(args.port);
-  const { server } = createServer(args.graphRoot, services);
+  const { server } = createServer(args.graphRoot, services, token);
 
   // Start listening
   server.listen(port, '127.0.0.1', () => {
-    const discoveryPath = writeDiscoveryFile(args.graphRoot, port);
+    const discoveryPath = writeDiscoveryFile(args.graphRoot, port, token);
     console.log(`[archivist] Server listening on http://127.0.0.1:${port}`);
     console.log(`[archivist] Discovery file: ${discoveryPath}`);
     console.log(`[archivist] WebSocket: ws://127.0.0.1:${port}`);
