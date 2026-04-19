@@ -1,4 +1,4 @@
-# Archivist TTRPG Blocks — Logseq Plugin
+# Archivist TTRPG Blocks - Logseq Plugin
 
 A D&D 5e toolkit for [Logseq](https://logseq.com) that renders parchment-styled stat blocks, inline dice tags, in-place editing with custom controls, and a full SRD compendium.
 
@@ -88,7 +88,7 @@ Search "Archivist" in the Logseq plugin marketplace.
 4. In Logseq, go to Plugins (three dots menu) and click **"Load unpacked plugin"**
 5. Select the extracted folder
 
-> ⚠️ **Windows users — unblock the ZIP before extracting.** Windows tags files downloaded from the internet (Mark of the Web), and Logseq's Electron runtime refuses to load plugins with that mark — you'll see `Not allowed to load local resource` and a `loadhandshake Timeout` in the console. Right-click the downloaded `.zip` → **Properties** → check **Unblock** → **OK**, *then* extract. If you already extracted, run this in PowerShell on the plugin folder:
+> ⚠️ **Windows users - unblock the ZIP before extracting.** Windows tags files downloaded from the internet (Mark of the Web), and Logseq's Electron runtime refuses to load plugins with that mark - you'll see `Not allowed to load local resource` and a `loadhandshake Timeout` in the console. Right-click the downloaded `.zip` → **Properties** → check **Unblock** → **OK**, *then* extract. If you already extracted, run this in PowerShell on the plugin folder:
 >
 > ```powershell
 > Get-ChildItem -Path "C:\path\to\archivist-logseq-plugin" -Recurse | Unblock-File
@@ -111,7 +111,7 @@ After installing, import the bundled SRD compendium:
 
 1. Open the command palette (`Cmd/Ctrl+Shift+P`)
 2. Run **"Archivist: Import SRD Compendium"**
-3. Wait for the progress messages — 960+ entities will be created as Logseq pages under the `SRD/` namespace
+3. Wait for the progress messages - 960+ entities will be created as Logseq pages under the `SRD/` namespace
 4. Once complete, you'll see a confirmation with the total entity count
 
 The SRD data is loaded on demand when you run the import command, so it does not affect plugin startup time.
@@ -121,7 +121,7 @@ The SRD data is loaded on demand when you run the import command, so it does not
 Archivist Inquiry is a local D&D 5e chat assistant that runs entirely on your machine. A small sidecar server (`archivist-bridge`) spawns Claude Code as the AI engine and the plugin talks to it over a localhost WebSocket.
 
 **Prerequisites:**
-- [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) installed and **already logged in** on your machine. The sidecar shells out to the `claude` CLI, so no `ANTHROPIC_API_KEY` is needed — your Claude Code session handles auth.
+- [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) installed and **already logged in** on your machine. The sidecar shells out to the `claude` CLI, so no `ANTHROPIC_API_KEY` is needed - your Claude Code session handles auth.
 - Node.js 18 or newer.
 
 **Start the sidecar (once per Logseq session):**
@@ -133,14 +133,14 @@ npx archivist-bridge --graph /path/to/your/logseq-graph
 Point `--graph` at the folder Logseq has open (the one containing your `pages/` and `journals/` directories). The sidecar auto-picks a port in `52340–52360`, writes a discovery file at `<graph>/.archivist/server.json`, and prints the URL it's listening on. Leave this terminal window running.
 
 Useful flags:
-- `--port <n>` — pin a specific port instead of auto-selecting
-- `--help` — show all options
+- `--port <n>` - pin a specific port instead of auto-selecting
+- `--help` - show all options
 
 **Open the Inquiry panel in Logseq:**
 
 1. Press `Cmd/Ctrl+Shift+I`, or run **"Toggle Archivist Inquiry"** from the command palette
 2. The panel slides in and auto-discovers the running sidecar
-3. Ask a question — e.g. "stat block for a level 5 goblin druid", "what does Counterspell do at higher levels?", "roll initiative for this encounter"
+3. Ask a question - e.g. "stat block for a level 5 goblin druid", "what does Counterspell do at higher levels?", "roll initiative for this encounter"
 4. Use **"Archivist Inquiry: New Session"** from the command palette to start a fresh conversation
 
 If the panel shows "disconnected", confirm the sidecar terminal is still running and that `--graph` points at the same vault Logseq has open.
@@ -152,7 +152,7 @@ After installation, try these features to verify everything works:
 ### Stat Blocks
 
 1. Create a new block and type `/Monster Block` (or `/Spell Block`, `/Item Block`)
-2. A YAML template will be inserted — the stat block renders automatically
+2. A YAML template will be inserted - the stat block renders automatically
 3. Click the **edit** button (pencil icon, right side) to enter edit mode
 4. Click the **columns** button to toggle two-column layout (monsters only)
 5. Click the **source** button (`</>`) to view raw YAML
@@ -168,9 +168,9 @@ After installation, try these features to verify everything works:
 
 In any Logseq block, use inline code with dice notation:
 
-- `` `dice:2d6+3` `` — rolls 2d6+3
-- `` `atk:STR` `` — shows an attack modifier
-- `` `damage:1d8+DEX` `` — shows damage dice
+- `` `dice:2d6+3` `` - rolls 2d6+3
+- `` `atk:STR` `` - shows an attack modifier
+- `` `damage:1d8+DEX` `` - shows damage dice
 
 These render as styled pills that are clickable when dice rolling is enabled.
 
