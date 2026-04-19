@@ -363,7 +363,14 @@ export function appendMarkdownText(text: string): string {
     } else if (match[5] !== undefined) {
       result += `<del>${escapeHtml(match[5])}</del>`;
     } else if (match[6] !== undefined) {
-      result += `<a href="${escapeHtml(match[7])}" target="_blank" rel="noopener">${escapeHtml(match[6])}</a>`;
+      const rawUrl = match[7];
+      const safe = /^(https?:|mailto:|#)/i.test(rawUrl);
+      if (!safe) {
+        // Degrade to plain text — no anchor for dangerous schemes
+        result += escapeHtml(match[6]);
+      } else {
+        result += `<a href="${escapeHtml(rawUrl)}" target="_blank" rel="noopener">${escapeHtml(match[6])}</a>`;
+      }
     }
 
     lastIndex = regex.lastIndex;
