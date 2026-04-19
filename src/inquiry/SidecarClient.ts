@@ -2,6 +2,12 @@
 // SidecarClient — Browser-side WebSocket + HTTP client
 // Runs in Logseq's plugin iframe, connects to the sidecar server.
 // Uses the browser's native WebSocket and fetch APIs.
+//
+// T14 (security hardening): discovery no longer port-scans /health.
+// Instead it reads <graphRoot>/.archivist/server.json which the bridge
+// writes on startup with `{ pid, port, graphRoot, version, startedAt,
+// token }`. Both the WebSocket handshake (via `?token=`) and every
+// REST call (via `Authorization: Bearer`) now require this token.
 // ──────────────────────────────────────────────────────────
 
 import type { ClientMessage, ServerMessage } from "./protocol";
@@ -12,16 +18,67 @@ export type ConnectionState =
   | "connected"
   | "reconnecting";
 
-const PORT_RANGE_START = 52340;
-const PORT_RANGE_END = 52360;
+/**
+ * Reads the contents of `<graphRoot>/.archivist/server.json` and returns
+ * it as a string. Should reject with an error whose `.code === "ENOENT"`
+ * when the file does not exist, so `discover()` can surface a clear
+ * "bridge is not running" message.
+ */
+export type ReadServerJson = (graphRoot: string) => Promise<string>;
+
 const RECONNECT_INITIAL_MS = 1000;
 const RECONNECT_MAX_MS = 30_000;
-const HEALTH_TIMEOUT_MS = 2000;
+
+/**
+ * Default implementation of {@link ReadServerJson} for the Logseq plugin
+ * iframe. Logseq's plugin SDK (`@logseq/libs` 0.0.17) exposes no general
+ * file-read API, but the iframe runs inside Electron's renderer with
+ * relaxed `webSecurity`, so a `fetch()` against a `file://` URL pointing
+ * at the discovery file works in practice.
+ *
+ * TODO(T14): verify this works in the production Logseq build channels.
+ * If a future Logseq release tightens the iframe sandbox, fall back to
+ * either (a) a small unauthenticated `/discovery` endpoint on the bridge
+ * that returns just `{ port }` so we can still locate the server, or
+ * (b) storing the token in `logseq.settings` and writing it from a
+ * bridge-side first-run flow. Both alternatives are documented in the
+ * Task 14 plan.
+ */
+async function defaultReadServerJson(graphRoot: string): Promise<string> {
+  // Strip any trailing slash so the path join is clean.
+  const clean = graphRoot.replace(/\/+$/, "");
+  const url = `file://${clean}/.archivist/server.json`;
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (err: any) {
+    // Browser fetch on a missing file:// resource throws TypeError.
+    // We translate that into the same shape Node's fs.readFile uses so
+    // SidecarClient.discover() can produce a uniform "not running" error.
+    const wrapped: any = new Error(
+      `Failed to read server.json at ${url}: ${err?.message ?? err}`,
+    );
+    wrapped.code = "ENOENT";
+    throw wrapped;
+  }
+  if (!res.ok) {
+    if (res.status === 404) {
+      const e: any = new Error(`server.json not found at ${url}`);
+      e.code = "ENOENT";
+      throw e;
+    }
+    throw new Error(
+      `Failed to read server.json (HTTP ${res.status}) at ${url}`,
+    );
+  }
+  return res.text();
+}
 
 export class SidecarClient {
   private ws: WebSocket | null = null;
   private state: ConnectionState = "disconnected";
   private port: number | null = null;
+  private token: string | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = RECONNECT_INITIAL_MS;
   private manualDisconnect = false;
@@ -29,59 +86,89 @@ export class SidecarClient {
   // Dependency-injected WebSocket constructor for testability
   private readonly WS: typeof WebSocket;
 
+  // Dependency-injected reader for `<graphRoot>/.archivist/server.json`
+  private readonly readServerJson: ReadServerJson;
+
   // Event listeners
   private streamListeners = new Set<(msg: ServerMessage) => void>();
   private stateListeners = new Set<(state: ConnectionState) => void>();
   private readyListeners = new Set<() => void>();
 
-  constructor(wsConstructor?: typeof WebSocket) {
+  constructor(
+    wsConstructor?: typeof WebSocket,
+    readServerJson?: ReadServerJson,
+  ) {
     this.WS = wsConstructor ?? WebSocket;
+    this.readServerJson = readServerJson ?? defaultReadServerJson;
   }
 
   // ── Connection lifecycle ────────────────────────────────
 
   /**
-   * Discover a running sidecar by scanning ports or using a fixed port.
-   * Once found, initiates a WebSocket connection.
+   * Discover a running sidecar by reading the bridge's discovery file
+   * at `<graphRoot>/.archivist/server.json`. Extracts both the port and
+   * the per-process auth token, then opens an authenticated WebSocket.
+   *
+   * Throws user-facing errors:
+   * - "not running" — server.json missing (ENOENT from the reader)
+   * - "corrupted"   — server.json present but not valid JSON
+   * - "out of date" — server.json missing the `token` field (pre-0.7.0)
    */
-  async discover(fixedPort?: number): Promise<void> {
-    if (fixedPort !== undefined) {
-      await this.probeHealth(fixedPort);
-      this.connect(fixedPort);
-      return;
+  async discover(opts: { graphRoot: string }): Promise<void> {
+    let raw: string;
+    try {
+      raw = await this.readServerJson(opts.graphRoot);
+    } catch (err: any) {
+      if (err?.code === "ENOENT") {
+        throw new Error(
+          "archivist-bridge is not running — start it from the plugin settings.",
+        );
+      }
+      throw err;
     }
 
-    // Scan port range concurrently
-    const results = await Promise.allSettled(
-      Array.from(
-        { length: PORT_RANGE_END - PORT_RANGE_START + 1 },
-        (_, i) => PORT_RANGE_START + i
-      ).map((port) => this.probeHealth(port).then(() => port))
-    );
-
-    const found = results.find(
-      (r): r is PromiseFulfilledResult<number> => r.status === "fulfilled"
-    );
-
-    if (!found) {
+    let parsed: any;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
       throw new Error(
-        `No Archivist sidecar found on ports ${PORT_RANGE_START}-${PORT_RANGE_END}`
+        "archivist-bridge server.json is corrupted — restart the bridge.",
       );
     }
 
-    this.connect(found.value);
+    if (typeof parsed.port !== "number") {
+      throw new Error(
+        "archivist-bridge server.json is malformed (no port).",
+      );
+    }
+    if (typeof parsed.token !== "string" || parsed.token.length === 0) {
+      throw new Error(
+        "archivist-bridge is out of date — please update.",
+      );
+    }
+
+    this.token = parsed.token;
+    this.connect(parsed.port);
   }
 
   /**
    * Open a WebSocket connection to the given port.
    * Public so tests can call it directly without discover().
+   *
+   * If a token has been captured by `discover()`, it is appended as
+   * `?token=<token>` so the bridge's `verifyClient` accepts the
+   * handshake. Without the token, the bridge will return HTTP 401
+   * during the upgrade.
    */
   connect(port: number): void {
     this.port = port;
     this.manualDisconnect = false;
     this.setState("connecting");
 
-    const ws = new this.WS(`ws://localhost:${port}/ws`);
+    const url = this.token
+      ? `ws://localhost:${port}/ws?token=${encodeURIComponent(this.token)}`
+      : `ws://localhost:${port}/ws`;
+    const ws = new this.WS(url);
 
     ws.onopen = () => {
       this.reconnectDelay = RECONNECT_INITIAL_MS;
@@ -400,32 +487,17 @@ export class SidecarClient {
     }
   }
 
-  private async probeHealth(port: number): Promise<void> {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      HEALTH_TIMEOUT_MS
-    );
-
-    try {
-      const res = await fetch(`http://localhost:${port}/health`, {
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body = (await res.json()) as { service?: string };
-      if (body.service !== "archivist") {
-        throw new Error("Not an archivist sidecar");
-      }
-    } finally {
-      clearTimeout(timeout);
-    }
+  private authHeaders(): Record<string, string> {
+    return this.token ? { Authorization: `Bearer ${this.token}` } : {};
   }
 
   private async httpGet<T>(path: string): Promise<T> {
     if (this.port === null || this.state === "disconnected") {
       throw new Error("Not connected to sidecar");
     }
-    const res = await fetch(`http://localhost:${this.port}${path}`);
+    const res = await fetch(`http://localhost:${this.port}${path}`, {
+      headers: this.authHeaders(),
+    });
     return res.json() as Promise<T>;
   }
 
@@ -435,7 +507,10 @@ export class SidecarClient {
     }
     const res = await fetch(`http://localhost:${this.port}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...this.authHeaders(),
+      },
       body: JSON.stringify(body),
     });
     return res.json() as Promise<T>;

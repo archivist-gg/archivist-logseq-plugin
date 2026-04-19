@@ -713,99 +713,119 @@ describe("SidecarClient", () => {
     });
   });
 
-  // ── Port discovery ──────────────────────────────────────
+  // ── server.json-based discovery (T14) ───────────────────
 
-  describe("discover", () => {
-    it("connects directly when fixedPort is provided", async () => {
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ service: "archivist" }),
-      });
-      vi.stubGlobal("fetch", fetchMock);
-
-      const client = createClient();
-      await client.discover(52345);
-
-      expect(fetchMock).toHaveBeenCalledWith(
-        "http://localhost:52345/health",
-        expect.objectContaining({ signal: expect.any(AbortSignal) })
+  describe("discover (server.json mode)", () => {
+    it("reads port+token from server.json and connects WS with ?token=", async () => {
+      const reader = vi.fn().mockResolvedValue(JSON.stringify({
+        pid: 1, port: 52355, graphRoot: "/g", version: "0.7.0",
+        startedAt: new Date().toISOString(), token: "a".repeat(64),
+      }));
+      const client = new SidecarClient(
+        MockWebSocket as unknown as typeof WebSocket,
+        reader,
       );
-      expect(client.getState()).toBe("connecting");
+      await client.discover({ graphRoot: "/g" });
 
-      vi.unstubAllGlobals();
-    });
-
-    it("scans port range to find sidecar", async () => {
-      let callCount = 0;
-      const fetchMock = vi.fn().mockImplementation((url: string) => {
-        callCount++;
-        // Third port in range succeeds
-        if (url.includes("52342")) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ service: "archivist" }),
-          });
-        }
-        return Promise.reject(new Error("Connection refused"));
-      });
-      vi.stubGlobal("fetch", fetchMock);
-
-      const client = createClient();
-      await client.discover();
-
-      // Should have found the port and started connecting
-      expect(client.getState()).toBe("connecting");
+      expect(reader).toHaveBeenCalledWith("/g");
       const ws = MockWebSocket.latest();
-      expect(ws.url).toContain("52342");
-
-      vi.unstubAllGlobals();
+      expect(ws.url).toContain("token=" + "a".repeat(64));
+      expect(ws.url).toContain("52355");
     });
 
-    it("throws when no sidecar is found", async () => {
-      const fetchMock = vi
-        .fn()
-        .mockRejectedValue(new Error("Connection refused"));
-      vi.stubGlobal("fetch", fetchMock);
-
-      const client = createClient();
-      await expect(client.discover()).rejects.toThrow(
-        /no archivist sidecar found/i
+    it("throws 'out of date' when server.json lacks token", async () => {
+      const reader = vi.fn().mockResolvedValue(JSON.stringify({
+        pid: 1, port: 52355, graphRoot: "/g", version: "0.6.0",
+        startedAt: new Date().toISOString(),
+      }));
+      const client = new SidecarClient(
+        MockWebSocket as unknown as typeof WebSocket,
+        reader,
       );
+      await expect(client.discover({ graphRoot: "/g" })).rejects.toThrow(
+        /out of date/i,
+      );
+    });
 
-      vi.unstubAllGlobals();
+    it("throws 'not running' when server.json is missing (ENOENT)", async () => {
+      const reader = vi
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error("ENOENT"), { code: "ENOENT" }),
+        );
+      const client = new SidecarClient(
+        MockWebSocket as unknown as typeof WebSocket,
+        reader,
+      );
+      await expect(client.discover({ graphRoot: "/g" })).rejects.toThrow(
+        /not running/i,
+      );
+    });
+
+    it("throws 'corrupted' when server.json is not valid JSON", async () => {
+      const reader = vi.fn().mockResolvedValue("not-json{");
+      const client = new SidecarClient(
+        MockWebSocket as unknown as typeof WebSocket,
+        reader,
+      );
+      await expect(client.discover({ graphRoot: "/g" })).rejects.toThrow(
+        /corrupted/i,
+      );
     });
   });
 
   // ── HTTP fetch methods ──────────────────────────────────
 
   describe("HTTP fetch methods", () => {
-    it("fetchSettings returns settings from HTTP endpoint", async () => {
-      const client = createClient();
-      connectClient(client, 52340);
+    // After T14, every authenticated REST call must send the bridge token
+    // as `Authorization: Bearer <token>`. We populate the token by going
+    // through `discover()` with an injected reader.
+    const TOKEN = "a".repeat(64);
+
+    function makeReader(port: number, token: string = TOKEN) {
+      return vi.fn().mockResolvedValue(JSON.stringify({
+        pid: 1, port, graphRoot: "/g", version: "0.7.0",
+        startedAt: new Date().toISOString(), token,
+      }));
+    }
+
+    it("fetchSettings sends Authorization header and returns settings", async () => {
+      const client = new SidecarClient(
+        MockWebSocket as unknown as typeof WebSocket,
+        makeReader(52340),
+      );
+      await client.discover({ graphRoot: "/g" });
+      MockWebSocket.latest().simulateOpen();
 
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
-        json: () =>
-          Promise.resolve({ model: "opus", temperature: 0.7 }),
+        json: () => Promise.resolve({ model: "opus", temperature: 0.7 }),
       });
       vi.stubGlobal("fetch", fetchMock);
 
       const result = await client.fetchSettings();
       expect(fetchMock).toHaveBeenCalledWith(
-        "http://localhost:52340/settings"
+        "http://localhost:52340/settings",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${TOKEN}`,
+          }),
+        }),
       );
       expect(result).toEqual({ model: "opus", temperature: 0.7 });
 
       vi.unstubAllGlobals();
     });
 
-    it("fetchSessions returns session list from HTTP endpoint", async () => {
-      const client = createClient();
-      connectClient(client, 52340);
+    it("fetchSessions sends Authorization header and returns sessions", async () => {
+      const client = new SidecarClient(
+        MockWebSocket as unknown as typeof WebSocket,
+        makeReader(52340),
+      );
+      await client.discover({ graphRoot: "/g" });
+      MockWebSocket.latest().simulateOpen();
 
-      const sessions = [
-        { id: "s1", title: "Session 1", lastModified: 1000 },
-      ];
+      const sessions = [{ id: "s1", title: "Session 1", lastModified: 1000 }];
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(sessions),
@@ -814,20 +834,27 @@ describe("SidecarClient", () => {
 
       const result = await client.fetchSessions();
       expect(fetchMock).toHaveBeenCalledWith(
-        "http://localhost:52340/sessions"
+        "http://localhost:52340/sessions",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${TOKEN}`,
+          }),
+        }),
       );
       expect(result).toEqual(sessions);
 
       vi.unstubAllGlobals();
     });
 
-    it("fetchCommands returns command list from HTTP endpoint", async () => {
-      const client = createClient();
-      connectClient(client, 52340);
+    it("fetchCommands sends Authorization header and returns commands", async () => {
+      const client = new SidecarClient(
+        MockWebSocket as unknown as typeof WebSocket,
+        makeReader(52340),
+      );
+      await client.discover({ graphRoot: "/g" });
+      MockWebSocket.latest().simulateOpen();
 
-      const commands = [
-        { name: "/help", description: "Show help" },
-      ];
+      const commands = [{ name: "/help", description: "Show help" }];
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(commands),
@@ -836,7 +863,12 @@ describe("SidecarClient", () => {
 
       const result = await client.fetchCommands();
       expect(fetchMock).toHaveBeenCalledWith(
-        "http://localhost:52340/commands"
+        "http://localhost:52340/commands",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${TOKEN}`,
+          }),
+        }),
       );
       expect(result).toEqual(commands);
 
@@ -845,9 +877,7 @@ describe("SidecarClient", () => {
 
     it("throws when not connected and fetching", async () => {
       const client = createClient();
-      await expect(client.fetchSettings()).rejects.toThrow(
-        /not connected/i
-      );
+      await expect(client.fetchSettings()).rejects.toThrow(/not connected/i);
     });
   });
 });

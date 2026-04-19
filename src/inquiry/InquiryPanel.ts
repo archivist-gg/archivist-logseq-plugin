@@ -42,14 +42,20 @@ export class InquiryPanel {
   private historyBtn: HTMLElement | null = null;
   private newSessionBtn: HTMLElement | null = null;
 
+  // Path on disk to the currently active Logseq graph. Required for
+  // discovery — the bridge writes server.json under <graphRoot>/.archivist/.
+  private graphRoot: string;
+
   constructor(
     hostDoc: Document,
     client: SidecarClient,
+    graphRoot: string,
     entityRegistry?: EntityRegistry,
     onCopyAndSave?: CopyAndSaveCallback,
   ) {
     this.hostDoc = hostDoc;
     this.client = client;
+    this.graphRoot = graphRoot;
     this.entityRegistry = entityRegistry ?? null;
     this.onCopyAndSave = onCopyAndSave;
     this.panelEl = hostDoc.createElement('div');
@@ -143,12 +149,23 @@ export class InquiryPanel {
     // 8. Inject toolbar toggle button into Logseq header
     this.injectToolbarButton();
 
-    // 9. Start sidecar discovery (non-blocking, errors logged)
-    const fixedPort = logseq.settings?.sidecarPort as number | undefined;
-    this.client.discover(fixedPort && fixedPort > 0 ? fixedPort : undefined)
-      .catch((err) => {
-        console.log('[archivist] Sidecar not found (will retry on toggle):', err?.message);
-      });
+    // 9. Start sidecar discovery (non-blocking, errors logged).
+    //    T14: discovery now reads <graphRoot>/.archivist/server.json
+    //    instead of port-scanning. The bridge writes that file with
+    //    both the port and the per-process auth token.
+    if (!this.graphRoot) {
+      console.log(
+        '[archivist] No graph open — Inquiry sidecar discovery skipped.',
+      );
+    } else {
+      this.client.discover({ graphRoot: this.graphRoot })
+        .catch((err) => {
+          console.log(
+            '[archivist] Sidecar discovery failed (will retry on toggle):',
+            err?.message,
+          );
+        });
+    }
   }
 
   toggle(): void {
