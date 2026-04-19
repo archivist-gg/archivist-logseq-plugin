@@ -488,7 +488,12 @@ export class SidecarClient {
   }
 
   private authHeaders(): Record<string, string> {
-    return this.token ? { Authorization: `Bearer ${this.token}` } : {};
+    if (!this.token) {
+      throw new Error(
+        "SidecarClient: no auth token — call discover() before issuing HTTP requests.",
+      );
+    }
+    return { Authorization: `Bearer ${this.token}` };
   }
 
   private async httpGet<T>(path: string): Promise<T> {
