@@ -1,6 +1,12 @@
-# Archivist TTRPG Blocks - Logseq Plugin
+# Archivist - Logseq Plugin
 
 A D&D 5e toolkit for [Logseq](https://logseq.com) that renders parchment-styled stat blocks, inline dice tags, in-place editing with custom controls, and a full SRD compendium.
+
+## Screenshots
+
+| Monster stat block | Spell block | Magic item |
+| --- | --- | --- |
+| ![Monster](.github/screenshots/monster-stat-block.png) | ![Spell](.github/screenshots/spell-block.png) | ![Item](.github/screenshots/item-block.png) |
 
 ## Features
 

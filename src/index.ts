@@ -598,7 +598,7 @@ entries:
     async () => { await showSearch(); },
   );
 
-  console.log("Archivist TTRPG Blocks loaded (Phase 1 + 2 + 3 + 4 + 6)");
+  console.log("Archivist loaded (Phase 1 + 2 + 3 + 4 + 6)");
 }
 
 logseq.ready(main).catch(console.error);

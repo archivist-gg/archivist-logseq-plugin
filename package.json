@@ -1,11 +1,18 @@
 {
   "name": "logseq-plugin-archivist",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "D&D 5e stat blocks, spells, and magic items for Logseq",
+  "author": "Shinoobi",
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://github.com/archivist-gg/archivist-logseq-plugin",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/archivist-gg/archivist-logseq-plugin.git"
+  },
   "main": "dist/index.html",
   "logseq": {
-    "id": "archivist-ttrpg",
-    "title": "Archivist TTRPG Blocks",
+    "id": "archivist-gg",
+    "title": "Archivist",
     "icon": "icon.png"
   },
   "scripts": {
